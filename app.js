@@ -1,54 +1,61 @@
+const DEFAULT_EMAIL_INTRO = "Estamos com transporte de capacidade indisponível, verificar com urgência.";
+const DEFAULT_OUTAGE_TEXT = "transporte de capacidade indisponível";
+
+function buildActionTaken(partnerName) {
+  return `Aberto chamado com parceiro ${partnerName || "Operadora"}`;
+}
+
 const carrierProfiles = {
   CLARO: {
     display: "Claro",
     recipients: "chamado@claroatendimento.com.br",
-    actionTaken: "Aberto chamado Bdesk",
+    actionTaken: "Aberto chamado com parceiro Claro",
     nextAction: "Acionar a Claro",
     spokenWith: "Claro",
     channel: "Email",
-    outageText: "capacidade indisponível",
-    emailIntro: "Estamos com o seguinte capacidade indisponível podem verificar com urgência?.",
+    outageText: DEFAULT_OUTAGE_TEXT,
+    emailIntro: DEFAULT_EMAIL_INTRO,
   },
   TELY: {
     display: "TELY",
     recipients: "monitoramento@tely.com.br",
-    actionTaken: "Aberto chamado junto a TELY",
+    actionTaken: "Aberto chamado com parceiro TELY",
     nextAction: "Cobrar a TELY em 1 hora",
     spokenWith: "TELY",
     channel: "Email",
-    outageText: "link indisponível",
-    emailIntro: "Estamos com o seguinte link indisponível podem verificar com urgência?",
+    outageText: DEFAULT_OUTAGE_TEXT,
+    emailIntro: DEFAULT_EMAIL_INTRO,
   },
   TELEBRAS: {
     display: "Telebras",
     recipients: "",
-    actionTaken: "Aberto chamado Bdesk",
+    actionTaken: "Aberto chamado com parceiro Telebras",
     nextAction: "Acionar a Telebras",
     spokenWith: "Telebras",
     channel: "WhatsApp",
     phoneChannel: "0800 880 7000",
-    outageText: "capacidade indisponível",
-    emailIntro: "Estamos com capacidade indisponível, podem verificar com urgência?",
+    outageText: DEFAULT_OUTAGE_TEXT,
+    emailIntro: DEFAULT_EMAIL_INTRO,
   },
   TIM: {
     display: "Tim",
     recipients: "corporate@timbrasil.com.br",
-    actionTaken: "Aberto chamado junto a Tim",
+    actionTaken: "Aberto chamado com parceiro Tim",
     nextAction: "Cobrar a Tim em 1 hora",
     spokenWith: "Tim",
     channel: "Telegram",
-    outageText: "transporte de capacidade indisponível",
-    emailIntro: "Estamos com transporte de capacidade indisponível verificar com urgência?",
+    outageText: DEFAULT_OUTAGE_TEXT,
+    emailIntro: DEFAULT_EMAIL_INTRO,
   },
   VIVO: {
     display: "Vivo",
     recipients: "swap_backbone@indrabrasil.com.br; cire_backbone@indrabrasil.com.br",
-    actionTaken: "Aberto chamado junto a Vivo",
+    actionTaken: "Aberto chamado com parceiro Vivo",
     nextAction: "Cobrar a Vivo em 1 hora",
     spokenWith: "Vivo",
     channel: "Email",
-    outageText: "transporte de capacidade indisponível",
-    emailIntro: "Estamos com transporte de capacidade indisponível verificar com urgência?",
+    outageText: DEFAULT_OUTAGE_TEXT,
+    emailIntro: DEFAULT_EMAIL_INTRO,
   },
 };
 
@@ -404,6 +411,7 @@ function getCarrierProfile(value = getValue("carrier")) {
     return {
       ...knownProfile,
       recipients: contact?.recipients || knownProfile.recipients,
+      actionTaken: buildActionTaken(display),
       display,
       spokenWith: display,
       phoneChannel: knownProfile.phoneChannel,
@@ -414,13 +422,13 @@ function getCarrierProfile(value = getValue("carrier")) {
   return {
     display,
     recipients: contact?.recipients || "",
-    actionTaken: `Aberto chamado junto a ${display}`,
+    actionTaken: buildActionTaken(display),
     nextAction: `Cobrar ${display} em 1 hora`,
     spokenWith: display,
     channel: "Email",
     phoneChannel: "",
-    outageText: "transporte de capacidade indisponível",
-    emailIntro: `Estamos com transporte de capacidade indisponível verificar com urgência?`,
+    outageText: DEFAULT_OUTAGE_TEXT,
+    emailIntro: DEFAULT_EMAIL_INTRO,
     contact,
   };
 }
@@ -898,7 +906,7 @@ function buildUpdate() {
   if (phoneChannel) lines.push(`TELEFONE: ${phoneChannel};`);
 
   lines.push(
-    "O QUE FOI FALADO: segue print abaixo;",
+    "O QUE FOI FALADO: Segue abaixo a captura de tela;",
     `PREVISÃO: ${getValue("forecast") || "Sem previsão"};`,
     `PRÓXIMA AÇÃO: Cobrar ${profile.display} em 1 hora;`,
   );
@@ -916,7 +924,7 @@ function buildEmail() {
     getValue("copyTo"),
     "",
     `${getValue("greeting")};`,
-    profile.emailIntro || `Estamos com ${getValue("outageText")} podem verificar com urgência?`,
+    DEFAULT_EMAIL_INTRO,
     "",
   ];
 
