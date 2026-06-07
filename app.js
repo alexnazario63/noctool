@@ -188,6 +188,10 @@ const dataUrls = {
   partners: "descricao-main/data/parceiras.json",
 };
 
+let previewTooltipEl = null;
+let previewTooltipTarget = null;
+let previewTooltipHideTimer = null;
+
 document.addEventListener("DOMContentLoaded", () => {
   [
     "events",
@@ -228,13 +232,26 @@ document.addEventListener("DOMContentLoaded", () => {
     "chargeOutput",
     "contactOutput",
     "status",
+    "autoStatus",
+    "launchScreen",
+    "autoFlow",
+    "autoEvents",
+    "autoCarrier",
+    "autoFailureType",
+    "autoInternalTicket",
+    "autoRecognizeActions",
+    "parametersDialog",
+    "paramContact",
+    "paramRequesterName",
   ].forEach((id) => {
     fields[id] = document.getElementById(id);
   });
 
+  initThreeBackground();
   loadDefaults();
   applyCarrierDefaults(fields.carrier.value, true);
   bindEvents();
+  initPreviewTooltips();
   loadDescriptionData();
   renderOutput();
   renderIcons();
@@ -252,6 +269,59 @@ function renderIcons() {
 
 function bindEvents() {
   document.getElementById("generatorForm").addEventListener("input", renderOutput);
+  document.getElementById("startAutoButton").addEventListener("click", () => startMode("auto"));
+  document.getElementById("startManualButton").addEventListener("click", () => startMode("manual"));
+  document.getElementById("parametersButton").addEventListener("click", openParametersDialog);
+  document.getElementById("autoHomeButton").addEventListener("click", returnToLaunch);
+  document.getElementById("manualHomeButton").addEventListener("click", returnToLaunch);
+  document.getElementById("autoFinishButton").addEventListener("click", restartAutoFlow);
+  document.getElementById("autoConfirmStep1").addEventListener("click", confirmAutoStepOne);
+  document.getElementById("cancelParametersButton").addEventListener("click", closeParametersDialog);
+  document.getElementById("closeParametersButton").addEventListener("click", closeParametersDialog);
+  document.getElementById("saveParametersButton").addEventListener("click", saveParametersFromDialog);
+
+  document.querySelectorAll("[data-step-nav]").forEach((button) => {
+    button.addEventListener("click", () => showAutoStep(Number(button.dataset.stepNav)));
+  });
+
+  fields.autoEvents.addEventListener("input", debounce(() => {
+    setValue("events", fields.autoEvents.value);
+    if (getValue("events")) parseEvents(false);
+    syncAutoFieldsFromMain();
+    renderOutput();
+    showAutoPreview("description");
+  }, 120));
+
+  fields.autoCarrier.addEventListener("input", debounce(() => {
+    applyCarrierDefaults(fields.autoCarrier.value, false);
+    setValue("partner", fields.autoCarrier.value);
+    renderOutput();
+    showAutoPreview("description");
+  }, 120));
+
+  fields.autoFailureType.addEventListener("input", () => {
+    setValue("failureType", fields.autoFailureType.value);
+    syncSymptomWithFailureType();
+    renderOutput();
+    showAutoPreview("description");
+  });
+
+  fields.autoInternalTicket.addEventListener("input", () => {
+    const pastedTicket = extractInternalTicket(fields.autoInternalTicket.value);
+    setValue("internalTicket", pastedTicket || fields.autoInternalTicket.value.trim());
+    toggleAutoRecognize();
+    renderOutput();
+    showAutoPreview("recognize");
+  });
+
+  document.querySelectorAll(".auto-next").forEach((button) => {
+    button.addEventListener("click", () => showAutoStep(currentAutoStep() + 1));
+  });
+
+  document.querySelectorAll(".auto-prev").forEach((button) => {
+    button.addEventListener("click", () => showAutoStep(currentAutoStep() - 1));
+  });
+
   fields.events.addEventListener("input", debounce(() => {
     if (getValue("events")) {
       parseEvents(false);
@@ -277,23 +347,453 @@ function bindEvents() {
     renderOutput();
   });
 
-  document.getElementById("downloadButton").addEventListener("click", downloadOutput);
-  document.getElementById("clearButton").addEventListener("click", clearForm);
-  document.getElementById("saveDefaultsButton").addEventListener("click", saveDefaults);
-
   document.querySelectorAll(".copy-action").forEach((button) => {
     button.addEventListener("click", () => {
       copyGenerated(button.dataset.copyKind);
     });
-
-    button.addEventListener("mouseenter", () => {
-      showPreview(button.dataset.previewKind);
-    });
-
-    button.addEventListener("focus", () => {
-      showPreview(button.dataset.previewKind);
-    });
   });
+}
+
+function initPreviewTooltips() {
+  if (previewTooltipEl) return;
+
+  previewTooltipEl = document.createElement("div");
+  previewTooltipEl.className = "preview-tooltip-float";
+  previewTooltipEl.setAttribute("role", "tooltip");
+  previewTooltipEl.hidden = true;
+  previewTooltipEl.innerHTML = `
+    <div class="preview-tooltip-float__label"></div>
+    <div class="preview-tooltip-float__title"></div>
+    <pre class="preview-tooltip-float__body"></pre>
+  `;
+  document.body.appendChild(previewTooltipEl);
+
+  document.querySelectorAll("[data-preview-kind]").forEach((button) => {
+    button.addEventListener("mouseenter", () => showPreviewTooltip(button));
+    button.addEventListener("focus", () => showPreviewTooltip(button));
+    button.addEventListener("mouseleave", hidePreviewTooltip);
+    button.addEventListener("blur", hidePreviewTooltip);
+  });
+
+  window.addEventListener("scroll", hidePreviewTooltip, true);
+  window.addEventListener("resize", hidePreviewTooltip);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") hidePreviewTooltip();
+  });
+}
+
+function startMode(mode) {
+  document.body.classList.remove("app-not-started", "app-mode-auto", "app-mode-manual");
+  document.body.classList.add(mode === "auto" ? "app-mode-auto" : "app-mode-manual");
+
+  if (mode === "auto") {
+    fields.autoFlow.hidden = false;
+    syncAutoFieldsFromMain();
+    showAutoStep(1);
+    animateAutoFlowIn();
+  } else {
+    fields.autoFlow.hidden = true;
+    setStatus("Modo manual iniciado.");
+    animateManualModeIn();
+  }
+
+  renderIcons();
+}
+
+function returnToLaunch() {
+  document.body.classList.remove("app-mode-auto", "app-mode-manual");
+  document.body.classList.add("app-not-started");
+  fields.autoFlow.hidden = true;
+  showAutoStep(1);
+  animateLaunchIn();
+  renderIcons();
+}
+
+function restartAutoFlow() {
+  document.body.classList.remove("app-not-started", "app-mode-manual");
+  document.body.classList.add("app-mode-auto");
+  fields.autoFlow.hidden = false;
+  resetAutoFlowFields();
+  syncAutoFieldsFromMain();
+  showAutoStep(1);
+  setStatus("Novo acionamento pronto.");
+  animateAutoFlowIn();
+  renderIcons();
+}
+
+function openParametersDialog() {
+  if (!fields.parametersDialog) return;
+
+  fields.paramContact.value = getValue("contact");
+  fields.paramRequesterName.value = getValue("requesterName");
+  fields.parametersDialog.showModal();
+}
+
+function closeParametersDialog() {
+  if (!fields.parametersDialog?.open) return;
+
+  fields.parametersDialog.close();
+}
+
+function saveParametersFromDialog() {
+  setValue("contact", fields.paramContact.value.trim());
+  setValue("requesterName", fields.paramRequesterName.value.trim());
+  saveDefaults();
+  renderOutput();
+  setStatus("Parâmetros salvos localmente.");
+  showToast("Parâmetros salvos.");
+  closeParametersDialog();
+}
+
+function resetAutoFlowFields() {
+  [
+    "events",
+    "internalTicket",
+    "externalTicket",
+    "designations",
+    "bdeskTitle",
+    "origin",
+    "destination",
+    "failureTime",
+    "phoneChannel",
+    "hostA",
+    "hostB",
+    "contact",
+  ].forEach((id) => setValue(id, ""));
+
+  setValue("carrier", "CLARO");
+  applyCarrierDefaults("CLARO", false);
+  setValue("partner", "CLARO");
+  setValue("failureType", "INDISPONIBILIDADE");
+  syncSymptomWithFailureType();
+  setValue("fiber", "ONLY");
+  setValue("descriptionMode", "auto");
+  renderOutput();
+}
+
+function confirmAutoStepOne() {
+  setValue("events", fields.autoEvents.value);
+  applyCarrierDefaults(fields.autoCarrier.value, false);
+  setValue("partner", fields.autoCarrier.value);
+  setValue("failureType", fields.autoFailureType.value || "INDISPONIBILIDADE");
+
+  if (getValue("events")) parseEvents(false);
+  syncAutoFieldsFromMain();
+  syncSymptomWithFailureType();
+  renderOutput();
+  showAutoStep(2);
+}
+
+function currentAutoStep() {
+  const active = document.querySelector(".auto-step.is-active");
+  return Number(active?.dataset.autoStep || 1);
+}
+
+function showAutoStep(step) {
+  const nextStep = Math.min(Math.max(step, 1), 5);
+  document.querySelectorAll(".auto-step").forEach((item) => {
+    const isActive = Number(item.dataset.autoStep) === nextStep;
+    item.classList.toggle("is-active", isActive);
+
+    if (isActive && window.gsap) {
+      gsap.fromTo(item, { y: 16, opacity: 0.75 }, { y: 0, opacity: 1, duration: 0.28, ease: "power2.out" });
+    }
+  });
+
+  updateAutoStepper(nextStep);
+  fields.autoStatus.textContent = `Passo ${nextStep} de 5`;
+  toggleAutoRecognize();
+}
+
+function updateAutoStepper(step) {
+  const progressFill = document.getElementById("autoProgressFill");
+  if (progressFill) progressFill.style.width = `${(step / 5) * 100}%`;
+
+  document.querySelectorAll("[data-step-nav]").forEach((button) => {
+    const buttonStep = Number(button.dataset.stepNav);
+    button.classList.toggle("is-active", buttonStep === step);
+    button.classList.toggle("is-complete", buttonStep < step);
+    button.setAttribute("aria-current", buttonStep === step ? "step" : "false");
+  });
+}
+
+function syncAutoFieldsFromMain() {
+  fields.autoEvents.value = getValue("events");
+  fields.autoCarrier.value = getValue("carrier");
+  fields.autoFailureType.value = getValue("failureType");
+  fields.autoInternalTicket.value = getValue("internalTicket");
+  toggleAutoRecognize();
+}
+
+function toggleAutoRecognize() {
+  fields.autoRecognizeActions.hidden = !getValue("internalTicket");
+}
+
+function animateLaunchIn() {
+  if (!window.gsap) return;
+
+  gsap.fromTo(".launch-modal", { y: 24, opacity: 0.45, scale: 0.98 }, { y: 0, opacity: 1, scale: 1, duration: 0.32, ease: "power2.out" });
+}
+
+function animateAutoFlowIn() {
+  if (!window.gsap) return;
+
+  gsap.fromTo(".auto-flow", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.36, ease: "power2.out" });
+}
+
+function animateManualModeIn() {
+  if (!window.gsap) return;
+
+  gsap.fromTo(".workspace", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.36, ease: "power2.out" });
+}
+
+function showButtonPreview(button) {
+  const kind = button.dataset.previewKind;
+  if (button.classList.contains("auto-copy-action")) {
+    if (kind !== "complete") showAutoPreview(kind);
+  } else {
+    showPreview(kind);
+  }
+}
+
+function showPreviewTooltip(button) {
+  if (!previewTooltipEl) return;
+
+  window.clearTimeout(previewTooltipHideTimer);
+  previewTooltipTarget = button;
+
+  const kind = button.dataset.previewKind;
+  const title = previewTitleFor(kind);
+  const missing = getMissingFields(kind);
+  const previewText = missing.length
+    ? `Complete os campos para gerar:\n- ${missing.join("\n- ")}`
+    : getRawGeneratedText(kind) || "Preencha os dados para gerar a prévia.";
+  const label = button.textContent.trim().replace(/\s+/g, " ");
+  const compactPreview = shortenPreviewText(previewText, button.classList.contains("auto-copy-action") ? 180 : 150, 4);
+
+  previewTooltipEl.querySelector(".preview-tooltip-float__label").textContent = label;
+  previewTooltipEl.querySelector(".preview-tooltip-float__title").textContent = title;
+  previewTooltipEl.querySelector(".preview-tooltip-float__body").textContent = compactPreview;
+  previewTooltipEl.hidden = false;
+  previewTooltipEl.classList.add("is-visible");
+  window.requestAnimationFrame(() => positionPreviewTooltip(button));
+}
+
+function positionPreviewTooltip(button) {
+  if (!previewTooltipEl) return;
+
+  const rect = button.getBoundingClientRect();
+  const tooltipRect = previewTooltipEl.getBoundingClientRect();
+  const gap = 12;
+  const isAuto = button.classList.contains("auto-copy-action");
+
+  let top = rect.top + rect.height / 2 - tooltipRect.height / 2;
+  let left = isAuto ? rect.right + gap : rect.left + rect.width / 2 - tooltipRect.width / 2;
+
+  if (!isAuto) {
+    top = rect.top - tooltipRect.height - gap;
+  }
+
+  if (isAuto && left + tooltipRect.width > window.innerWidth - 12) {
+    left = rect.left - tooltipRect.width - gap;
+  }
+
+  if (!isAuto && top < 12) {
+    top = rect.bottom + gap;
+  }
+
+  top = Math.max(12, Math.min(top, window.innerHeight - tooltipRect.height - 12));
+  left = Math.max(12, Math.min(left, window.innerWidth - tooltipRect.width - 12));
+
+  previewTooltipEl.style.top = `${top}px`;
+  previewTooltipEl.style.left = `${left}px`;
+}
+
+function hidePreviewTooltip() {
+  if (!previewTooltipEl) return;
+
+  previewTooltipHideTimer = window.setTimeout(() => {
+    previewTooltipEl.hidden = true;
+    previewTooltipEl.classList.remove("is-visible");
+    previewTooltipTarget = null;
+  }, 80);
+}
+
+function shortenPreviewText(text, maxChars, maxLines) {
+  const lines = String(text).split("\n").filter((line) => line.trim().length > 0);
+  const compactLines = lines.slice(0, maxLines).map((line) => line.trim());
+  let compact = compactLines.join("\n");
+
+  if (compact.length > maxChars) {
+    compact = `${compact.slice(0, maxChars - 1).trimEnd()}…`;
+  } else if (lines.length > maxLines) {
+    compact = `${compact}\n…`;
+  }
+
+  return compact;
+}
+
+function buildPreviewTooltipContent(button) {
+  const kind = button.dataset.previewKind;
+  const title = previewTitleFor(kind);
+  const missing = getMissingFields(kind);
+  const previewText = missing.length
+    ? `Complete os campos para gerar:\n- ${missing.join("\n- ")}`
+    : getRawGeneratedText(kind) || "Preencha os dados para gerar a prévia.";
+  const label = button.textContent.trim().replace(/\s+/g, " ");
+
+  return `
+    <div class="preview-tooltip">
+      <div class="preview-tooltip__label">${escapeHtml(label)}</div>
+      <div class="preview-tooltip__title">${escapeHtml(title)}</div>
+      <pre class="preview-tooltip__body">${escapeHtml(previewText)}</pre>
+    </div>
+  `;
+}
+
+function initThreeBackground() {
+  const canvas = document.getElementById("threeBackground");
+  if (!canvas) return;
+  if (!window.THREE) {
+    window.requestAnimationFrame(initThreeBackground);
+    return;
+  }
+
+  if (canvas.dataset.threeInitialized === "true") return;
+  canvas.dataset.threeInitialized = "true";
+
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x07111f, 0.04);
+  const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 100);
+  camera.position.set(0, 0, 9);
+
+  const group = new THREE.Group();
+  scene.add(group);
+
+  const core = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(1.15, 2),
+    new THREE.MeshStandardMaterial({
+      color: 0x79f1dd,
+      emissive: 0x103b4a,
+      emissiveIntensity: 0.9,
+      roughness: 0.18,
+      metalness: 0.35,
+      flatShading: true,
+    }),
+  );
+  group.add(core);
+
+  const halo = new THREE.Mesh(
+    new THREE.TorusGeometry(2.55, 0.035, 12, 220),
+    new THREE.MeshBasicMaterial({ color: 0x4ca5ff, transparent: true, opacity: 0.45 }),
+  );
+  halo.rotation.x = Math.PI / 2.2;
+  group.add(halo);
+
+  const innerRing = new THREE.Mesh(
+    new THREE.TorusGeometry(1.8, 0.018, 12, 180),
+    new THREE.MeshBasicMaterial({ color: 0xf2b84b, transparent: true, opacity: 0.32 }),
+  );
+  innerRing.rotation.y = Math.PI / 4;
+  group.add(innerRing);
+
+  const nodeGeometry = new THREE.IcosahedronGeometry(0.08, 1);
+  const nodeMaterial = new THREE.MeshStandardMaterial({
+    color: 0x7dd3c7,
+    emissive: 0x0b6f6a,
+    emissiveIntensity: 0.55,
+    roughness: 0.32,
+    metalness: 0.25,
+  });
+
+  const nodes = [];
+  for (let index = 0; index < 54; index += 1) {
+    const angle = index * 0.72;
+    const radius = 2.2 + (index % 9) * 0.28;
+    const node = new THREE.Mesh(nodeGeometry, nodeMaterial);
+    node.position.set(
+      Math.cos(angle) * radius,
+      Math.sin(angle * 1.17) * 1.8,
+      Math.sin(angle) * radius * 0.7,
+    );
+    nodes.push(node);
+    group.add(node);
+  }
+
+  const linePoints = nodes.map((node) => node.position);
+  const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
+  const lineMaterial = new THREE.LineBasicMaterial({ color: 0xf2b84b, transparent: true, opacity: 0.34 });
+  const line = new THREE.LineLoop(lineGeometry, lineMaterial);
+  group.add(line);
+
+  const particleCount = 180;
+  const particlePositions = new Float32Array(particleCount * 3);
+  for (let index = 0; index < particleCount; index += 1) {
+    const radius = 3.1 + Math.random() * 3.8;
+    const angle = Math.random() * Math.PI * 2;
+    const height = (Math.random() - 0.5) * 5.5;
+    particlePositions[index * 3] = Math.cos(angle) * radius;
+    particlePositions[index * 3 + 1] = height;
+    particlePositions[index * 3 + 2] = Math.sin(angle) * radius;
+  }
+
+  const particleGeometry = new THREE.BufferGeometry();
+  particleGeometry.setAttribute("position", new THREE.BufferAttribute(particlePositions, 3));
+  const particleMaterial = new THREE.PointsMaterial({ color: 0x9adff4, size: 0.04, transparent: true, opacity: 0.8 });
+  const particles = new THREE.Points(particleGeometry, particleMaterial);
+  scene.add(particles);
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.52));
+  const light = new THREE.PointLight(0x9bd8ff, 1.6, 40);
+  light.position.set(4, 4, 7);
+  scene.add(light);
+  const light2 = new THREE.PointLight(0x69e2cf, 0.9, 30);
+  light2.position.set(-4, -2, 5);
+  scene.add(light2);
+
+  const pointer = { x: 0, y: 0 };
+  const target = { x: 0, y: 0 };
+
+  window.addEventListener("pointermove", (event) => {
+    pointer.x = (event.clientX / window.innerWidth - 0.5) * 2;
+    pointer.y = (event.clientY / window.innerHeight - 0.5) * 2;
+  });
+
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function resize() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    renderer.setSize(width, height, false);
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+  }
+
+  function animate(time) {
+    const seconds = time * 0.001;
+    target.x += (pointer.x - target.x) * 0.05;
+    target.y += (pointer.y - target.y) * 0.05;
+
+    group.rotation.y = seconds * 0.18 + target.x * 0.26;
+    group.rotation.x = Math.sin(seconds * 0.32) * 0.16 + target.y * 0.18;
+    core.rotation.y = seconds * 0.45;
+    halo.rotation.z = seconds * 0.2;
+    innerRing.rotation.x = Math.PI / 4 + seconds * 0.16;
+    nodes.forEach((node, index) => {
+      node.scale.setScalar(1 + Math.sin(seconds * 1.7 + index) * 0.18);
+    });
+    particles.rotation.y = seconds * 0.06;
+    particles.rotation.x = Math.sin(seconds * 0.12) * 0.08;
+    renderer.render(scene, camera);
+    if (!prefersReducedMotion) requestAnimationFrame(animate);
+  }
+
+  window.addEventListener("resize", resize);
+  resize();
+  if (!prefersReducedMotion) requestAnimationFrame(animate);
 }
 
 function debounce(callback, delay) {
@@ -485,17 +985,23 @@ function parseEvents(showStatus) {
     return;
   }
 
-  const carrier = inferCarrier(text) || getValue("carrier");
+  const normalizedText = normalizeEventText(text);
+  if (normalizedText !== text) {
+    fields.events.value = normalizedText;
+    if (fields.autoEvents) fields.autoEvents.value = normalizedText;
+  }
+
+  const carrier = inferCarrier(normalizedText) || getValue("carrier");
   fields.carrier.value = carrier;
   applyCarrierDefaults(carrier, true);
 
-  const designations = extractDesignations(text);
-  const firstDate = extractFailureTime(text);
-  const bdesk = extractBdeskTitle(text);
-  const trecho = extractRoute(text);
-  const hosts = extractHosts(text);
-  const fiber = extractFiber(text);
-  const failureType = inferFailureType(text, bdesk);
+  const designations = extractDesignations(normalizedText);
+  const firstDate = extractFailureTime(normalizedText);
+  const bdesk = extractBdeskTitle(normalizedText);
+  const trecho = extractRoute(normalizedText);
+  const hosts = extractHosts(normalizedText);
+  const fiber = extractFiber(normalizedText);
+  const failureType = inferFailureType(normalizedText, bdesk);
   const routeFromHosts = extractRouteFromHosts(hosts);
 
   setValue("designations", designations.join("\n"));
@@ -513,6 +1019,41 @@ function parseEvents(showStatus) {
   if (showStatus) {
     setStatus("Dados extraídos do evento. Revise origem, destino e designações antes de copiar.");
   }
+}
+
+function normalizeEventText(text) {
+  const preparedText = String(text)
+    .replace(/([^\n])(20\d{2}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})(?=RTD\s*\|)/g, "$1\n$2")
+    .replace(/\r\n/g, "\n");
+
+  const lines = preparedText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const normalized = [];
+  let pendingTimestamp = "";
+
+  lines.forEach((line) => {
+    if (/^20\d{2}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(line)) {
+      pendingTimestamp = line;
+      return;
+    }
+
+    if (isIgnorableAlarmLine(line)) {
+      return;
+    }
+
+    const value = pendingTimestamp ? `${pendingTimestamp}${line}` : line;
+    normalized.push(value);
+    pendingTimestamp = "";
+  });
+
+  return normalized.join("\n");
+}
+
+function isIgnorableAlarmLine(line) {
+  return /^\d{6,}$/.test(line) || /^Aut\s+Bdesk:#/i.test(line) || /^✅️?/u.test(line);
 }
 
 function inferCarrier(text) {
@@ -574,13 +1115,33 @@ function extractPipeCapacityDesignations(text) {
 }
 
 function extractFailureTime(text) {
-  const iso = text.match(/(20\d{2})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/);
-  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]} ${iso[4]}:${iso[5]}`;
+  const timestamps = [];
 
-  const br = text.match(/(\d{2})[/-](\d{2})[/-](20\d{2})\s+(\d{2}):(\d{2})/);
-  if (br) return `${br[1]}/${br[2]}/${br[3]} ${br[4]}:${br[5]}`;
+  const isoPattern = /(?:^|\n)(20\d{2})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})/g;
+  let match = isoPattern.exec(text);
+  while (match) {
+    timestamps.push({
+      raw: `${match[1]}-${match[2]}-${match[3]} ${match[4]}:${match[5]}:${match[6]}`,
+      date: new Date(`${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}`),
+    });
+    match = isoPattern.exec(text);
+  }
 
-  return "";
+  const brPattern = /(?:^|\n)(\d{2})[/-](\d{2})[/-](20\d{2})\s+(\d{2}):(\d{2})(?::(\d{2}))?/g;
+  match = brPattern.exec(text);
+  while (match) {
+    const seconds = match[6] || "00";
+    timestamps.push({
+      raw: `${match[3]}-${match[2]}-${match[1]} ${match[4]}:${match[5]}:${seconds}`,
+      date: new Date(`${match[3]}-${match[2]}-${match[1]}T${match[4]}:${match[5]}:${seconds}`),
+    });
+    match = brPattern.exec(text);
+  }
+
+  if (!timestamps.length) return "";
+
+  timestamps.sort((left, right) => left.date - right.date);
+  return timestamps[0].raw;
 }
 
 function extractBdeskTitle(text) {
@@ -1072,6 +1633,9 @@ function buildRoute() {
 
 function formatFailureTime(value) {
   if (!value) return "";
+
+  if (/^20\d{2}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(value)) return value;
+  if (/^\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}(:\d{2})?$/.test(value)) return value;
   return value.endsWith("hrs") || value.endsWith("hs") ? value : `${value}hrs`;
 }
 
@@ -1094,6 +1658,7 @@ function getRawGeneratedText(kind) {
     email: fields.emailOutput.value,
     contact: fields.contactOutput.value,
     charge: fields.chargeOutput.value,
+    complete: buildComplete(),
   };
 
   const chargeMatch = kind.match(/^charge-(\d+)$/);
@@ -1150,6 +1715,7 @@ function getMissingFields(kind) {
       ["Protocolo externo ou chamado interno", () => getValue("externalTicket") || getValue("internalTicket")],
       ["Saudação", () => getValue("greeting")],
     ],
+    complete: [],
   };
 
   return requiredFields(requirements[kind] || []);
@@ -1233,6 +1799,21 @@ function showPreview(kind) {
   previewText.classList.add("animate__animated", "animate__fadeIn");
 }
 
+function showAutoPreview(kind) {
+  const missing = getMissingFields(kind);
+  const text = missing.length
+    ? `Complete os campos para gerar:\n- ${missing.join("\n- ")}`
+    : getRawGeneratedText(kind);
+
+  if (!fields.autoPreviewTitle || !fields.autoPreviewText) return;
+
+  fields.autoPreviewTitle.textContent = previewTitleFor(kind);
+  fields.autoPreviewText.textContent = text || "Preencha os dados do passo atual para gerar este texto.";
+  fields.autoPreviewText.classList.remove("animate__animated", "animate__fadeIn");
+  void fields.autoPreviewText.offsetWidth;
+  fields.autoPreviewText.classList.add("animate__animated", "animate__fadeIn");
+}
+
 function previewTitleFor(kind) {
   const titles = {
     description: "Descrição Bdesk",
@@ -1246,6 +1827,7 @@ function previewTitleFor(kind) {
     "charge-2": "Mensagem padrão",
     "charge-3": "Mensagem padrão",
     "charge-4": "Mensagem padrão",
+    complete: "Carimbo completo",
   };
 
   return titles[kind] || "Prévia";
