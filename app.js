@@ -1,6 +1,10 @@
 const DEFAULT_EMAIL_INTRO = "Estamos com transporte de capacidade indisponível, verificar com urgência.";
 const DEFAULT_OUTAGE_TEXT = "transporte de capacidade indisponível";
 
+// Integração Zabbix - Massivas
+const ZABBIX_API_URL = ""; // Ex: "https://zabbix.suaempresa.com.br/api_jsonrpc.php"
+const ZABBIX_API_TOKEN = ""; // Adicione seu token de API Zabbix somente leitura aqui
+
 function buildActionTaken(partnerName) {
   return `Aberto chamado com parceiro ${partnerName || "Operadora"}`;
 }
@@ -180,6 +184,68 @@ const descriptionData = {
   loaded: false,
 };
 
+const ADMIN_CONFIG_KEY = "nocAdminConfig";
+
+function readAdminConfig() {
+  try {
+    return JSON.parse(localStorage.getItem(ADMIN_CONFIG_KEY) || "{}");
+  } catch (error) {
+    return {};
+  }
+}
+
+function normalizeAdminList(value) {
+  if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean);
+  return String(value || "")
+    .split(/\r?\n|,/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function applyAdminConfig() {
+  const config = readAdminConfig();
+
+  (config.partners || []).forEach((partner) => {
+    const key = normalizePartnerLookup(partner.key || partner.display || partner.name || "");
+    if (!key) return;
+
+    partnerContacts[key] = {
+      ...(partnerContacts[key] || {}),
+      display: partner.display || partner.name || key,
+      aliases: normalizeAdminList(partner.aliases),
+      recipients: partner.recipients || "",
+      phone: partner.phone || "",
+      portal: partner.portal || "",
+      user: partner.user || "",
+      password: partner.password || "",
+      details: normalizeAdminList(partner.details),
+    };
+
+    if (partner.channel || partner.nextAction || partner.spokenWith) {
+      carrierProfiles[key] = {
+        display: partner.display || partner.name || key,
+        recipients: partner.recipients || "",
+        actionTaken: buildActionTaken(partner.display || partner.name || key),
+        nextAction: partner.nextAction || `Cobrar ${partner.display || partner.name || key} em 1 hora`,
+        spokenWith: partner.spokenWith || partner.display || partner.name || key,
+        channel: partner.channel || "Email",
+        outageText: getAdminStampText("outageText", DEFAULT_OUTAGE_TEXT),
+        emailIntro: getAdminStampText("emailIntro", DEFAULT_EMAIL_INTRO),
+      };
+    }
+  });
+}
+
+function getAdminStampText(key, fallback) {
+  const config = readAdminConfig();
+  return config.stampTexts?.[key] || fallback;
+}
+
+function getAdminChargeMessages() {
+  const config = readAdminConfig();
+  return Array.isArray(config.chargeMessages) ? config.chargeMessages.filter(Boolean) : [];
+}
+
 const fields = {};
 
 const dataUrls = {
@@ -235,11 +301,16 @@ document.addEventListener("DOMContentLoaded", () => {
     "autoStatus",
     "launchScreen",
     "autoFlow",
+    "massivasFlow",
     "autoEvents",
     "autoCarrier",
     "autoFailureType",
     "autoInternalTicket",
     "autoRecognizeActions",
+    "massivasStatus",
+    "massivasHosts",
+    "massivasSummary",
+    "massivasProgressFill",
     "parametersDialog",
     "paramContact",
     "paramRequesterName",
@@ -248,6 +319,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   initThreeBackground();
+  applyAdminConfig();
   loadDefaults();
   applyCarrierDefaults(fields.carrier.value, true);
   bindEvents();
@@ -270,18 +342,27 @@ function renderIcons() {
 function bindEvents() {
   document.getElementById("generatorForm").addEventListener("input", renderOutput);
   document.getElementById("startAutoButton").addEventListener("click", () => startMode("auto"));
-  document.getElementById("startManualButton").addEventListener("click", () => startMode("manual"));
+  document.getElementById("startMassivasButton").addEventListener("click", showMassivasDevelopmentPopup);
   document.getElementById("parametersButton").addEventListener("click", openParametersDialog);
   document.getElementById("autoHomeButton").addEventListener("click", returnToLaunch);
+  document.getElementById("autoManualButton").addEventListener("click", () => startMode("manual"));
   document.getElementById("manualHomeButton").addEventListener("click", returnToLaunch);
+  document.getElementById("manualAutoButton").addEventListener("click", () => startMode("auto"));
+  document.getElementById("massivasHomeButton").addEventListener("click", returnToLaunch);
   document.getElementById("autoFinishButton").addEventListener("click", restartAutoFlow);
+  document.getElementById("massivasFinishButton").addEventListener("click", restartMassivasFlow);
   document.getElementById("autoConfirmStep1").addEventListener("click", confirmAutoStepOne);
+  document.getElementById("massivasConfirmStep1").addEventListener("click", confirmMassivasStepOne);
   document.getElementById("cancelParametersButton").addEventListener("click", closeParametersDialog);
   document.getElementById("closeParametersButton").addEventListener("click", closeParametersDialog);
   document.getElementById("saveParametersButton").addEventListener("click", saveParametersFromDialog);
 
   document.querySelectorAll("[data-step-nav]").forEach((button) => {
     button.addEventListener("click", () => showAutoStep(Number(button.dataset.stepNav)));
+  });
+
+  document.querySelectorAll("[data-massivas-step-nav]").forEach((button) => {
+    button.addEventListener("click", () => showMassivasStep(Number(button.dataset.massivasStepNav)));
   });
 
   fields.autoEvents.addEventListener("input", debounce(() => {
@@ -322,7 +403,20 @@ function bindEvents() {
     button.addEventListener("click", () => showAutoStep(currentAutoStep() - 1));
   });
 
-  fields.events.addEventListener("input", debounce(() => {
+  document.querySelectorAll(".massivas-next").forEach((button) => {
+    button.addEventListener("click", () => showMassivasStep(currentMassivasStep() + 1));
+  });
+
+  document.querySelectorAll(".massivas-prev").forEach((button) => {
+    button.addEventListener("click", () => showMassivasStep(currentMassivasStep() - 1));
+  });
+
+  fields.massivasHosts.addEventListener("input", () => {
+    renderMassivasSummary();
+    setValue("massivasSummary", buildMassivasSummaryFallback());
+  });
+
+    fields.events.addEventListener("input", debounce(() => {
     if (getValue("events")) {
       parseEvents(false);
       renderOutput();
@@ -383,16 +477,24 @@ function initPreviewTooltips() {
 }
 
 function startMode(mode) {
-  document.body.classList.remove("app-not-started", "app-mode-auto", "app-mode-manual");
-  document.body.classList.add(mode === "auto" ? "app-mode-auto" : "app-mode-manual");
+  document.body.classList.remove("app-not-started", "app-mode-auto", "app-mode-manual", "app-mode-massivas");
+  document.body.classList.add(mode === "auto" ? "app-mode-auto" : mode === "massivas" ? "app-mode-massivas" : "app-mode-manual");
 
   if (mode === "auto") {
     fields.autoFlow.hidden = false;
+    fields.massivasFlow.hidden = true;
     syncAutoFieldsFromMain();
     showAutoStep(1);
     animateAutoFlowIn();
+  } else if (mode === "massivas") {
+    fields.autoFlow.hidden = true;
+    fields.massivasFlow.hidden = false;
+    renderMassivasSummary();
+    showMassivasStep(1);
+    animateMassivasFlowIn();
   } else {
     fields.autoFlow.hidden = true;
+    fields.massivasFlow.hidden = true;
     setStatus("Modo manual iniciado.");
     animateManualModeIn();
   }
@@ -401,23 +503,61 @@ function startMode(mode) {
 }
 
 function returnToLaunch() {
-  document.body.classList.remove("app-mode-auto", "app-mode-manual");
+  document.body.classList.remove("app-mode-auto", "app-mode-manual", "app-mode-massivas");
   document.body.classList.add("app-not-started");
   fields.autoFlow.hidden = true;
+  fields.massivasFlow.hidden = true;
   showAutoStep(1);
+  showMassivasStep(1);
   animateLaunchIn();
   renderIcons();
 }
 
+function showMassivasDevelopmentPopup() {
+  const title = "Massivas em desenvolvimento";
+  const text = "Este fluxo ainda está em desenvolvimento.";
+
+  if (window.Swal) {
+    Swal.fire({
+      icon: "info",
+      title,
+      text,
+      confirmButtonText: "Entendi",
+      showClass: {
+        popup: "animate__animated animate__fadeInDown",
+      },
+      hideClass: {
+        popup: "animate__animated animate__fadeOutUp",
+      },
+    });
+    return;
+  }
+
+  window.alert(`${title}\n\n${text}`);
+}
+
 function restartAutoFlow() {
-  document.body.classList.remove("app-not-started", "app-mode-manual");
+  document.body.classList.remove("app-not-started", "app-mode-manual", "app-mode-massivas");
   document.body.classList.add("app-mode-auto");
   fields.autoFlow.hidden = false;
+  fields.massivasFlow.hidden = true;
   resetAutoFlowFields();
   syncAutoFieldsFromMain();
   showAutoStep(1);
   setStatus("Novo acionamento pronto.");
   animateAutoFlowIn();
+  renderIcons();
+}
+
+function restartMassivasFlow() {
+  document.body.classList.remove("app-not-started", "app-mode-manual", "app-mode-auto");
+  document.body.classList.add("app-mode-massivas");
+  fields.autoFlow.hidden = true;
+  fields.massivasFlow.hidden = false;
+  resetMassivasFlowFields();
+  showMassivasStep(1);
+  setStatus("Nova massiva pronta.");
+  animateMassivasFlowIn();
   renderIcons();
 }
 
@@ -484,6 +624,169 @@ function confirmAutoStepOne() {
   showAutoStep(2);
 }
 
+function resetMassivasFlowFields() {
+  setValue("massivasHosts", "");
+  setValue("massivasSummary", "");
+}
+
+async function confirmMassivasStepOne() {
+  const btn = document.getElementById("massivasConfirmStep1");
+  if (btn) {
+    btn.dataset.originalText = btn.textContent;
+    btn.textContent = "Consultando Zabbix...";
+    btn.disabled = true;
+  }
+
+  try {
+    await renderMassivasSummary();
+  } catch (error) {
+    console.error("Erro ao consultar Zabbix:", error);
+    showToast("Erro na consulta do Zabbix.", "error");
+    setValue("massivasSummary", buildMassivasSummaryFallback());
+  } finally {
+    if (btn) {
+      btn.textContent = btn.dataset.originalText || "Avançar";
+      btn.disabled = false;
+    }
+    showMassivasStep(2);
+  }
+}
+
+async function renderMassivasSummary() {
+  const hostsText = getValue("massivasHosts");
+  const hosts = splitLines(hostsText).map(h => h.trim().toUpperCase());
+
+  let alarmsText = "Zabbix não configurado ou nenhum alarme encontrado.";
+
+  if (ZABBIX_API_URL && ZABBIX_API_TOKEN && hosts.length > 0) {
+    alarmsText = await fetchZabbixAlarms(hosts);
+  } else if (hosts.length > 0) {
+    alarmsText = hosts.map(h => `- ${h}: (Sem integração ativa com Zabbix)`).join("\n");
+  }
+
+  const lines = [
+    "### ATUALIZAÇÃO DA MASSIVA ###",
+    "",
+    "ANALISE: ",
+    "PREVISÃO DE NORMALIZAÇÃO: ",
+    "PRÓXIMA AÇÃO: ",
+    "",
+    "ALARMES RELACIONADOS:",
+    alarmsText
+  ];
+
+  setValue("massivasSummary", lines.join("\n"));
+}
+
+function buildMassivasSummaryFallback() {
+  const hostsText = getValue("massivasHosts");
+  const hosts = splitLines(hostsText).map(h => h.trim().toUpperCase());
+
+  const lines = [
+    "### ATUALIZAÇÃO DA MASSIVA ###",
+    "",
+    "ANALISE: ",
+    "PREVISÃO DE NORMALIZAÇÃO: ",
+    "PRÓXIMA AÇÃO: ",
+    "",
+    "HOSTS INFORMADOS:",
+    ...(hosts.length ? hosts.map(h => `- ${h}`) : ["Nenhum host informado."])
+  ];
+  return lines.join("\n");
+}
+
+async function fetchZabbixAlarms(hosts) {
+  try {
+    const hostResponse = await fetch(ZABBIX_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json-rpc' },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        method: "host.get",
+        params: {
+          filter: { host: hosts },
+          output: ["hostid", "host"]
+        },
+        auth: ZABBIX_API_TOKEN,
+        id: 1
+      })
+    });
+
+    const hostData = await hostResponse.json();
+    if (!hostData.result || hostData.result.length === 0) {
+      return "Nenhum host correspondente encontrado no Zabbix.";
+    }
+
+    const hostIds = hostData.result.map(h => h.hostid);
+
+    const problemResponse = await fetch(ZABBIX_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json-rpc' },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        method: "problem.get",
+        params: {
+          hostids: hostIds,
+          recent: true,
+          sortfield: ["eventid"],
+          sortorder: "DESC",
+          output: ["name", "clock"]
+        },
+        auth: ZABBIX_API_TOKEN,
+        id: 2
+      })
+    });
+
+    const problemData = await problemResponse.json();
+    if (!problemData.result || problemData.result.length === 0) {
+      return "Nenhum alarme recente encontrado para os hosts informados no Zabbix.";
+    }
+
+    const alarmLines = problemData.result.map(p => {
+      const date = new Date(p.clock * 1000);
+      const timeStr = date.toLocaleString();
+      return `- [${timeStr}] ${p.name}`;
+    });
+
+    return alarmLines.join("\n");
+  } catch (error) {
+    console.error("Erro na API do Zabbix:", error);
+    throw error;
+  }
+}
+
+function currentMassivasStep() {
+  const active = document.querySelector(".massivas-step.is-active");
+  return Number(active?.dataset.massivasStep || 1);
+}
+
+function showMassivasStep(step) {
+  const nextStep = Math.min(Math.max(step, 1), 3);
+  document.querySelectorAll(".massivas-step").forEach((item) => {
+    const isActive = Number(item.dataset.massivasStep) === nextStep;
+    item.classList.toggle("is-active", isActive);
+
+    if (isActive && window.gsap) {
+      gsap.fromTo(item, { y: 16, opacity: 0.75 }, { y: 0, opacity: 1, duration: 0.28, ease: "power2.out" });
+    }
+  });
+
+  updateMassivasStepper(nextStep);
+  if (fields.massivasStatus) fields.massivasStatus.textContent = `Passo ${nextStep} de 3`;
+}
+
+function updateMassivasStepper(step) {
+  const progressFill = fields.massivasProgressFill;
+  if (progressFill) progressFill.style.width = `${(step / 3) * 100}%`;
+
+  document.querySelectorAll("[data-massivas-step-nav]").forEach((button) => {
+    const buttonStep = Number(button.dataset.massivasStepNav);
+    button.classList.toggle("is-active", buttonStep === step);
+    button.classList.toggle("is-complete", buttonStep < step);
+    button.setAttribute("aria-current", buttonStep === step ? "step" : "false");
+  });
+}
+
 function currentAutoStep() {
   const active = document.querySelector(".auto-step.is-active");
   return Number(active?.dataset.autoStep || 1);
@@ -545,6 +848,12 @@ function animateManualModeIn() {
   if (!window.gsap) return;
 
   gsap.fromTo(".workspace", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.36, ease: "power2.out" });
+}
+
+function animateMassivasFlowIn() {
+  if (!window.gsap) return;
+
+  gsap.fromTo(".massivas-flow", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.36, ease: "power2.out" });
 }
 
 function showButtonPreview(button) {
@@ -813,8 +1122,11 @@ async function loadDescriptionData() {
     ]);
 
     descriptionData.cnl = cnl;
-    descriptionData.failureTypes = failureTypes[0] || {};
-    descriptionData.partners = partners;
+    descriptionData.failureTypes = {
+      ...(failureTypes[0] || {}),
+      ...(readAdminConfig().failureTypes || {}),
+    };
+    descriptionData.partners = [...partners, ...(readAdminConfig().partners || []).map((partner) => partner.display || partner.name || partner.key).filter(Boolean)];
     descriptionData.loaded = true;
     fillDatalist("failureTypesList", Object.keys(descriptionData.failureTypes));
     fillDatalist("partnersList", mergePartnerOptions(descriptionData.partners));
@@ -836,8 +1148,10 @@ async function loadDescriptionData() {
       "TEMPERATURA ALTA": "TPA",
       TRANSPORTE: "TRN",
       RADIO: "RAD",
+      ...(readAdminConfig().failureTypes || {}),
     };
     fillDatalist("failureTypesList", Object.keys(descriptionData.failureTypes));
+    fillDatalist("partnersList", mergePartnerOptions(descriptionData.partners));
     setStatus("Abra por um servidor local para carregar CNL/parceiros automaticamente.");
     renderOutput();
   }
@@ -1058,12 +1372,55 @@ function isIgnorableAlarmLine(line) {
 
 function inferCarrier(text) {
   const upper = text.toUpperCase();
+
+  if (upper.includes("TELEBRAS") || upper.includes("PATX")) return "TELEBRAS";
+  if (upper.includes("EILD")) return "VIVO";
+
+  for (const option of carrierDetectionOptions()) {
+    const p = option.match.toUpperCase();
+    const pNoSpace = p.replace(/\s+/g, "");
+    const pUnder = p.replace(/\s+/g, "_");
+    const pDash = p.replace(/\s+/g, "-");
+
+    const variations = new Set([p, pNoSpace, pUnder, pDash]);
+    for (const v of variations) {
+      if (
+        upper.includes(`CAP_${v}`) ||
+        upper.includes(`CAP:${v}`) ||
+        upper.includes(`CAP-${v}`) ||
+        upper.includes(`::${v}`)
+      ) {
+        return option.value;
+      }
+    }
+  }
+
   if (upper.includes("CAP_CLARO") || upper.includes("::CLARO")) return "CLARO";
   if (upper.includes("CAP_TELY") || upper.includes("::TELY")) return "TELY";
-  if (upper.includes("TELEBRAS") || upper.includes("PATX")) return "TELEBRAS";
   if (upper.includes("CAP:TIM") || upper.includes("::TIM")) return "TIM";
-  if (upper.includes("CAP:VIVO") || upper.includes("::VIVO") || upper.includes("EILD")) return "VIVO";
+  if (upper.includes("CAP:VIVO") || upper.includes("::VIVO")) return "VIVO";
+
   return "";
+}
+
+function carrierDetectionOptions() {
+  const options = [];
+
+  Object.entries(partnerContacts).forEach(([key, contact]) => {
+    [key, contact.display, ...(contact.aliases || [])].filter(Boolean).forEach((match) => {
+      options.push({ match, value: key });
+    });
+  });
+
+  if (typeof descriptionData !== "undefined" && descriptionData.partners) {
+    descriptionData.partners.filter(Boolean).forEach((partner) => {
+      options.push({ match: partner, value: partner });
+    });
+  }
+
+  return options
+    .filter((option, index, list) => list.findIndex((item) => item.match === option.match) === index)
+    .sort((left, right) => right.match.length - left.match.length);
 }
 
 function extractDesignations(text) {
@@ -1402,9 +1759,9 @@ function buildOpening() {
   const lines = [
     "### ABERTURA NOC ###",
     "",
-    `SINTOMA/RECLAMAÇÃO: ${getValue("symptom") || "Capacidade indisponível"};`,
-    `DIAGNÓSTICO: ${getValue("diagnosis") || "Provável falha na operadora parceira"};`,
-    `FACILIDADES: ${getValue("facilities") || "Segue abaixo"};`,
+    `SINTOMA/RECLAMAÇÃO: ${getValue("symptom") || getAdminStampText("symptomDefault", "Capacidade indisponível")};`,
+    `DIAGNÓSTICO: ${getValue("diagnosis") || getAdminStampText("diagnosisDefault", "Provável falha na operadora parceira")};`,
+    `FACILIDADES: ${getValue("facilities") || getAdminStampText("facilitiesDefault", "Segue abaixo")};`,
     `AÇÃO TOMADA: ${getValue("actionTaken")};`,
     `PRÓXIMA AÇÃO: ${getValue("nextAction")};`,
   ];
@@ -1467,7 +1824,7 @@ function buildUpdate() {
   if (phoneChannel) lines.push(`TELEFONE: ${phoneChannel};`);
 
   lines.push(
-    "O QUE FOI FALADO: Segue abaixo a captura de tela;",
+    `O QUE FOI FALADO: ${getAdminStampText("spokenText", "Segue abaixo a captura de tela")};`,
     `PREVISÃO: ${getValue("forecast") || "Sem previsão"};`,
     `PRÓXIMA AÇÃO: Cobrar ${profile.display} em 1 hora;`,
   );
@@ -1479,13 +1836,9 @@ function buildEmail() {
   const carrier = normalizeCarrierKey(getValue("carrier"));
   if (carrier === "TELEBRAS") return buildTelebrasRequest();
 
-  const profile = getCarrierProfile(carrier);
   const lines = [
-    getValue("recipients"),
-    getValue("copyTo"),
-    "",
     `${getValue("greeting")};`,
-    DEFAULT_EMAIL_INTRO,
+    getAdminStampText("emailIntro", DEFAULT_EMAIL_INTRO),
     "",
   ];
 
@@ -1534,6 +1887,10 @@ function buildRecognizeAlarms() {
   return `Aut Bdesk:# ${ticket} - ${description}`;
 }
 
+function buildEmailSubject() {
+  return buildRecognizeAlarms().replace(/^Aut\s+Bdesk:#\s*/i, "");
+}
+
 function buildContactInfo() {
   const partner = getValue("carrier") || getValue("partner");
   const contact = getPartnerContact(partner);
@@ -1558,14 +1915,21 @@ function buildChargeMessages() {
   const carrier = getCarrierProfile().display;
   const greeting = getValue("greeting");
   const designator = external ? ` ${external}` : "";
+  const adminMessages = getAdminChargeMessages();
 
-  return [
+  const messages = adminMessages.length ? adminMessages : [
     `${greeting}, temos alguma atualização deste chamado${designator} ?`,
     `${greeting}, circuito${designator} permanece indisponível.`,
     `${greeting} prezados temos atualizações do chamado${designator} ?`,
     `${greeting}, ${carrier}, seguimos no aguardo de atualização do chamado${designator}.`,
     `${greeting}, validado circuito/host normalizado. Temos RFO ou causa raiz?`,
   ];
+
+  return messages.map((message) => String(message)
+    .replaceAll("{greeting}", greeting)
+    .replaceAll("{ticket}", external || "")
+    .replaceAll("{designator}", designator)
+    .replaceAll("{carrier}", carrier));
 }
 
 function buildComplete() {
@@ -1655,7 +2019,9 @@ function getRawGeneratedText(kind) {
     recognize: fields.recognizeOutput.value,
     opening: fields.openingOutput.value,
     update: fields.updateOutput.value,
+    subject: buildEmailSubject(),
     email: fields.emailOutput.value,
+    recipients: getValue("recipients"),
     contact: fields.contactOutput.value,
     charge: fields.chargeOutput.value,
     complete: buildComplete(),
@@ -1692,6 +2058,10 @@ function getMissingFields(kind) {
       ["Chamado interno", () => getValue("internalTicket")],
       ["Descrição Bdesk", () => fields.descriptionOutput.value],
     ],
+    subject: [
+      ["Chamado interno", () => getValue("internalTicket")],
+      ["Descrição Bdesk", () => fields.descriptionOutput.value],
+    ],
     opening: [
       ["Alarmes/evento", () => getValue("events")],
       ["Sintoma/reclamação", () => getValue("symptom")],
@@ -1707,6 +2077,9 @@ function getMissingFields(kind) {
       ["Previsão", () => getValue("forecast")],
     ],
     email: getEmailRequirements(),
+    recipients: [
+      ["Destinatários", () => getValue("recipients")],
+    ],
     contact: [
       ["Parceiro", () => getValue("carrier") || getValue("partner")],
       ["Contato cadastrado", () => Boolean(getPartnerContact(getValue("carrier") || getValue("partner")))],
@@ -1821,6 +2194,8 @@ function previewTitleFor(kind) {
     opening: "Abertura NOC",
     update: "Atualização NOC",
     email: "E-mail / Solicitação",
+    subject: "Assunto",
+    recipients: "Destinatários",
     contact: "Contato do parceiro",
     "charge-0": "Mensagem padrão",
     "charge-1": "Mensagem padrão",
@@ -1908,8 +2283,13 @@ function readDefaults() {
 
 function loadDefaults() {
   const defaults = readDefaults();
+  const adminDefaults = readAdminConfig().defaults || {};
   if (defaults.contact) setValue("contact", defaults.contact);
   if (defaults.requesterName) setValue("requesterName", defaults.requesterName);
+  if (adminDefaults.contact) setValue("contact", adminDefaults.contact);
+  if (adminDefaults.requesterName) setValue("requesterName", adminDefaults.requesterName);
+  if (adminDefaults.copyTo) setValue("copyTo", adminDefaults.copyTo);
+  if (adminDefaults.channel) setValue("channel", adminDefaults.channel);
 }
 
 function saveDefaults() {

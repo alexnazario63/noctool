@@ -25,7 +25,7 @@
               </div>
             </div>
             <h2>Central de acionamentos NOC</h2>
-            <p>Escolha o fluxo automático para seguir os passos de abertura, ou entre no modo manual para usar o dashboard completo.</p>
+            <p>Escolha o fluxo automático para seguir os passos de abertura. A edição manual fica disponível dentro do fluxo.</p>
             <ol>
               <li>Cole os alarmes e confirme parceiro e tipo de falha.</li>
               <li>Gere assunto Bdesk e texto de abertura.</li>
@@ -37,7 +37,7 @@
         </div>
         <div class="launch-actions">
           <button class="primary-button launch-action" id="startAutoButton" type="button"><i data-lucide="wand-sparkles"></i> INICIAR AUTO</button>
-          <button class="ghost-button launch-action" id="startManualButton" type="button"><i data-lucide="layout-dashboard"></i> INICIAR MANUAL</button>
+          <button class="ghost-button launch-action" id="startMassivasButton" type="button"><i data-lucide="layers-3"></i> MASSIVAS</button>
           <button class="ghost-button launch-action" id="parametersButton" type="button"><i data-lucide="sliders-horizontal"></i> Parâmetros</button>
         </div>
       </div>
@@ -53,7 +53,10 @@
             </div>
           </div>
           <p class="status" id="autoStatus" role="status" aria-live="polite">Passo 1 de 5</p>
-          <button class="ghost-button" id="autoHomeButton" type="button"><i data-lucide="house"></i> Início</button>
+          <div class="navbar-actions">
+            <button class="ghost-button" id="autoHomeButton" type="button"><i data-lucide="house"></i> Início</button>
+            <button class="ghost-button" id="autoManualButton" type="button"><i data-lucide="layout-dashboard"></i> Edição manual</button>
+          </div>
         </nav>
 
         <div class="auto-layout">
@@ -143,7 +146,9 @@
                 </div>
               </div>
               <div class="auto-button-grid">
+                <button class="copy-action auto-copy-action" type="button" data-copy-kind="subject" data-preview-kind="subject"><i data-lucide="text-cursor-input"></i> Assunto</button>
                 <button class="copy-action auto-copy-action" type="button" data-copy-kind="email" data-preview-kind="email"><i data-lucide="mail"></i> E-mail</button>
+                <button class="copy-action auto-copy-action" type="button" data-copy-kind="recipients" data-preview-kind="recipients"><i data-lucide="users"></i> Destinatários</button>
               </div>
               <div class="auto-actions">
                 <button class="ghost-button auto-prev" type="button"><i data-lucide="arrow-left"></i> Voltar</button>
@@ -168,6 +173,85 @@
         </div>
       </section>
 
+      <section class="massivas-flow animate__animated animate__fadeIn" id="massivasFlow" aria-label="Fluxo massivas" hidden>
+        <nav class="navbar massivas-navbar" aria-label="Navegação do fluxo massivas">
+          <div class="brand">
+            <span class="brand-mark" aria-hidden="true"><i data-lucide="layers-3"></i></span>
+            <div>
+              <p class="eyebrow">Fluxo massivas</p>
+              <h1>NOC TOOL</h1>
+            </div>
+          </div>
+          <p class="status" id="massivasStatus" role="status" aria-live="polite">Passo 1 de 3</p>
+          <button class="ghost-button" id="massivasHomeButton" type="button"><i data-lucide="house"></i> Início</button>
+        </nav>
+
+        <div class="massivas-layout">
+          <section class="massivas-steps" aria-label="Passo a passo massivas">
+            <div class="massivas-progress" aria-label="Progresso do fluxo massivas">
+              <div class="progress-track"><span id="massivasProgressFill"></span></div>
+              <div class="massivas-step-nav">
+                <button type="button" class="massivas-step-nav-item is-active" data-massivas-step-nav="1">1 <span>Entrada</span></button>
+                <button type="button" class="massivas-step-nav-item" data-massivas-step-nav="2">2 <span>Resumo</span></button>
+                <button type="button" class="massivas-step-nav-item" data-massivas-step-nav="3">3 <span>Finalizar</span></button>
+              </div>
+            </div>
+
+            <article class="massivas-step is-active" data-massivas-step="1">
+              <div class="step-heading">
+                <span class="step-count">1</span>
+                <div>
+                  <p class="eyebrow">Hosts</p>
+                  <h2>Informar hosts da massiva</h2>
+                </div>
+              </div>
+              <label class="field wide">
+                <span>Hosts da massiva</span>
+                <textarea id="massivasHosts" rows="10" placeholder="Cole um host por linha"></textarea>
+              </label>
+              <p class="massivas-copy">Ao confirmar, a ferramenta consulta o Zabbix em modo somente leitura e preenche as informações do passo 2.</p>
+              <div class="massivas-actions">
+                <button class="primary-button" id="massivasConfirmStep1" type="button"><i data-lucide="check"></i> Consultar Zabbix e avançar</button>
+              </div>
+            </article>
+
+            <article class="massivas-step" data-massivas-step="2">
+              <div class="step-heading">
+                <span class="step-count">2</span>
+                <div>
+                  <p class="eyebrow">Informações</p>
+                  <h2>Revisar a massiva consultada</h2>
+                </div>
+              </div>
+              <label class="field wide">
+                <span>Informações do passo 2</span>
+                <textarea id="massivasSummary" rows="10" readonly></textarea>
+              </label>
+              <p class="massivas-copy">O texto começa com ### ATUALIZAÇÃO DA MASSIVA ### e já traz análise, previsão e próxima ação.</p>
+              <div class="massivas-actions">
+                <button class="ghost-button massivas-prev" type="button"><i data-lucide="arrow-left"></i> Voltar</button>
+                <button class="primary-button massivas-next" type="button"><i data-lucide="arrow-right"></i> Próximo passo</button>
+              </div>
+            </article>
+
+            <article class="massivas-step" data-massivas-step="3">
+              <div class="step-heading">
+                <span class="step-count">3</span>
+                <div>
+                  <p class="eyebrow">Finalização</p>
+                  <h2>Concluir e reiniciar o fluxo</h2>
+                </div>
+              </div>
+              <p class="massivas-copy">Use este passo para finalizar a massiva atual e voltar ao início do fluxo com uma nova base.</p>
+              <div class="massivas-actions">
+                <button class="ghost-button massivas-prev" type="button"><i data-lucide="arrow-left"></i> Voltar</button>
+                <button class="primary-button" id="massivasFinishButton" type="button"><i data-lucide="rotate-ccw"></i> Finalizar e voltar ao início</button>
+              </div>
+            </article>
+          </section>
+        </div>
+      </section>
+
       <section class="workspace animate__animated animate__fadeIn" aria-label="Gerador de descrições NOC">
         <nav class="navbar" aria-label="Navegação principal">
           <div class="brand">
@@ -179,7 +263,10 @@
           </div>
 
           <p class="status" id="status" role="status" aria-live="polite">Pronto para gerar.</p>
-          <button class="ghost-button" id="manualHomeButton" type="button"><i data-lucide="house"></i> Início</button>
+          <div class="navbar-actions">
+            <button class="ghost-button" id="manualHomeButton" type="button"><i data-lucide="house"></i> Início</button>
+            <button class="ghost-button" id="manualAutoButton" type="button"><i data-lucide="wand-sparkles"></i> Fluxo auto</button>
+          </div>
         </nav>
 
         <div class="tool-grid">
