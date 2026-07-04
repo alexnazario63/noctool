@@ -224,6 +224,22 @@ body {
   flex-wrap: wrap;
 }
 
+.toggle-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.toggle-field input {
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+}
+
 .launch-action {
   min-height: 48px;
   font-size: 13px;
@@ -569,6 +585,22 @@ h1 {
 h2 {
   font-family: "Space Grotesk", sans-serif;
   font-size: 15px;
+}
+
+h2 svg {
+  width: 17px;
+  height: 17px;
+  color: var(--primary);
+  flex: 0 0 auto;
+}
+
+.step-heading h2,
+.panel-section h2,
+.copy-section h2,
+.preview-panel h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .menu {
