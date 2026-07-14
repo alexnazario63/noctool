@@ -65,7 +65,7 @@ const carrierProfiles = {
 
 const partnerContacts = {
   VIVO: {
-    display: "Vivo / Telefonica",
+    display: "VIVO",
     aliases: ["TELEFONICA"],
     recipients: "swap_backbone@indrabrasil.com.br; cire_backbone@indrabrasil.com.br",
     details: ['Supervisora "Camila Silvestre Botelho" <camila.botelho@telefonica.com>'],
@@ -86,7 +86,7 @@ const partnerContacts = {
     display: "Angola Telecom",
   },
   CIRION: {
-    display: "L3 / Lumen / Century / Cirion",
+    display: "CIRION",
     aliases: ["L3", "LUMEN", "CENTURY"],
     portal: "https://portal.ciriontechnologies.com/portal/#/login",
     user: "noc-L@alloha.com",
@@ -143,7 +143,7 @@ const partnerContacts = {
     recipients: "noc@seatelecom.com.br",
   },
   UPIX: {
-    display: "Upix / 76Telecom",
+    display: "UPIX",
     aliases: ["76TELECOM", "76 TELECOM"],
     recipients: '"support@upixnetworks.com" <support@upixnetworks.com>',
   },
@@ -186,6 +186,15 @@ const descriptionData = {
 
 function useOperationalEmojis() {
   return readDefaults().useEmojis !== false;
+}
+
+function useDarkTheme() {
+  return readDefaults().darkTheme === true;
+}
+
+function applyTheme() {
+  document.body.classList.toggle("theme-dark-red", useDarkTheme());
+  window.dispatchEvent(new CustomEvent("noc-theme-change", { detail: { dark: useDarkTheme() } }));
 }
 
 function emoji(value) {
@@ -259,6 +268,12 @@ document.addEventListener("DOMContentLoaded", () => {
     "autoRecognizeActions",
     "massivasStatus",
     "massivasHosts",
+    "massivasBdeskSubject",
+    "massivasUpdatePhoneGroup",
+    "massivasUpdateTxInfraTicket",
+    "massivasUpdateSpokenWith",
+    "massivasUpdateForecast",
+    "massivasUpdateNextAction",
     "massivasDebugAlarms",
     "massivasSummary",
     "massivasProgressFill",
@@ -266,6 +281,7 @@ document.addEventListener("DOMContentLoaded", () => {
     "paramContact",
     "paramRequesterName",
     "paramUseEmojis",
+    "paramDarkTheme",
   ].forEach((id) => {
     fields[id] = document.getElementById(id);
   });
@@ -300,6 +316,7 @@ function bindEvents() {
   document.getElementById("manualHomeButton").addEventListener("click", returnToLaunch);
   document.getElementById("manualAutoButton").addEventListener("click", () => startMode("auto"));
   document.getElementById("massivasHomeButton").addEventListener("click", returnToLaunch);
+  document.getElementById("massivasStartFlowButton").addEventListener("click", () => showMassivasStep(2));
   document.getElementById("autoFinishButton").addEventListener("click", restartAutoFlow);
   document.getElementById("massivasFinishButton").addEventListener("click", restartMassivasFlow);
   document.getElementById("autoConfirmStep1").addEventListener("click", confirmAutoStepOne);
@@ -447,7 +464,6 @@ function startMode(mode) {
   } else if (mode === "massivas") {
     fields.autoFlow.hidden = true;
     fields.massivasFlow.hidden = false;
-    renderMassivasSummary();
     showMassivasStep(1);
     animateMassivasFlowIn();
   } else {
@@ -525,6 +541,7 @@ function openParametersDialog() {
   fields.paramContact.value = getValue("contact");
   fields.paramRequesterName.value = getValue("requesterName");
   fields.paramUseEmojis.checked = useOperationalEmojis();
+  fields.paramDarkTheme.checked = useDarkTheme();
   fields.parametersDialog.showModal();
 }
 
@@ -585,6 +602,12 @@ function confirmAutoStepOne() {
 
 function resetMassivasFlowFields() {
   setValue("massivasHosts", "");
+  setValue("massivasBdeskSubject", "");
+  setValue("massivasUpdatePhoneGroup", "");
+  setValue("massivasUpdateTxInfraTicket", "");
+  setValue("massivasUpdateSpokenWith", "");
+  setValue("massivasUpdateForecast", "Sem previsão");
+  setValue("massivasUpdateNextAction", "");
   setValue("massivasDebugAlarms", "");
   setValue("massivasSummary", "");
 }
@@ -608,7 +631,7 @@ async function confirmMassivasStepOne() {
       btn.textContent = btn.dataset.originalText || "Avançar";
       btn.disabled = false;
     }
-    showMassivasStep(2);
+    showMassivasStep(4);
   }
 }
 
@@ -637,6 +660,30 @@ function buildMassivasSummaryFallback() {
   return buildMassivasAnalysis(hosts, getValue("massivasDebugAlarms"));
 }
 
+function buildMassivasRecognize() {
+  const subject = getValue("massivasBdeskSubject").replace(/^(Aut\s+Bdesk:#|authbdesk#)\s*/i, "").trim();
+  return subject ? `Aut Bdesk:# ${subject}` : "";
+}
+
+function buildMassivasManualUpdate() {
+  const optionalLines = [];
+  if (getValue("massivasUpdatePhoneGroup")) {
+    optionalLines.push(`${withEmoji("☎️", "TELEFONE/GRUPO")}: ${getValue("massivasUpdatePhoneGroup")};`);
+  }
+  if (getValue("massivasUpdateTxInfraTicket")) {
+    optionalLines.push(`${withEmoji("🎫", "CHAMADO TX / INFRA")}: ${getValue("massivasUpdateTxInfraTicket")};`);
+  }
+
+  return [
+    `### ${withEmoji("🚨", "ATUALIZAÇÃO DA MASSIVA")} ###`,
+    "",
+    `${withEmoji("👤", "FALADO COM")}: ${getValue("massivasUpdateSpokenWith")};`,
+    ...optionalLines,
+    `${withEmoji("⏳", "PREVISÃO")}: ${getValue("massivasUpdateForecast") || "Sem previsão"};`,
+    `${withEmoji("➡️", "PRÓXIMA AÇÃO")}: ${getValue("massivasUpdateNextAction")};`,
+  ].join("\n");
+}
+
 function runMassivasDebugAnalysis() {
   const debugAlarms = getValue("massivasDebugAlarms");
   const hostsText = getValue("massivasHosts");
@@ -649,7 +696,7 @@ function runMassivasDebugAnalysis() {
 
   setValue("massivasSummary", buildMassivasAnalysis(hosts, debugAlarms));
   setStatus("Análise manual de massiva gerada.");
-  showMassivasStep(2);
+  showMassivasStep(4);
 }
 
 async function fetchZabbixAlarms(hosts) {
@@ -737,37 +784,105 @@ function buildMassivasAnalysis(hosts, alarmsText) {
   const multipleApproaches = linkDownRecords.length >= 2 && affectedHosts.length >= 2;
   const repeatedRestart = restartRecords.some((record) => recordsForHost(restartRecords, record.hosts[0]).length >= 2);
 
-  const analysis = [];
-  if (!validRecords.length) {
-    analysis.push("Sem alarmes ativos retornados pelo Zabbix para os hosts informados. Necessário validar se os nomes estão iguais ao cadastro do Zabbix ou se já houve normalização.");
-  } else if (repeatedRestart) {
-    analysis.push("Identificado padrão de reinicialização recorrente em host monitorado. Indício de instabilidade local do equipamento, energia, hardware ou software.");
-  } else if (multipleApproaches && simultaneous) {
-    analysis.push("Identificada queda simultânea de múltiplas abordagens/hosts relacionados. Indício de isolamento de site/equipamento afetado por perda de caminhos de transporte.");
-  } else if (multipleApproaches) {
-    analysis.push("Identificadas múltiplas interfaces/transportes em falha envolvendo mais de um host. Indício de degradação ou isolamento parcial de conectividade.");
-  } else if (linkDownRecords.length) {
-    analysis.push("Identificado alarme de link/interface down. Indício de falha no transporte, porta, circuito ou equipamento vizinho associado.");
-  } else {
-    analysis.push("Alarmes coletados sem padrão crítico único identificado automaticamente. Necessário validar correlação temporal e topologia dos hosts envolvidos.");
-  }
-
-  const interfaceFindings = describeInterfaceFindings(validRecords, triggerGroups, deliveryGroups, operatorGroups);
-  const hostFindings = describeHostFindings(affectedHosts);
-  const actions = suggestMassivasActions({ validRecords, linkDownRecords, restartRecords, multipleApproaches, simultaneous, repeatedRestart });
+  const conclusion = buildMassivasConclusion({
+    affectedHosts,
+    validRecords,
+    linkDownRecords,
+    restartRecords,
+    triggerGroups,
+    deliveryGroups,
+    operatorGroups,
+    multipleApproaches,
+    simultaneous,
+    repeatedRestart,
+  });
+  const actions = suggestMassivasActions({ validRecords, linkDownRecords, restartRecords, operatorGroups, multipleApproaches, simultaneous, repeatedRestart });
 
   return [
-    `### ${withEmoji("🚨", "ATUALIZAÇÃO DA MASSIVA")} ###`,
+    `### ${withEmoji("🚨", "ANÁLISE DA MASSIVA - ALPHA/TESTES")} ###`,
     "",
-    `${withEmoji("🔎", "ANALISE")}: ${analysis.join(" ")}`,
-    ...hostFindings,
-    ...interfaceFindings,
+    `${withEmoji("🔎", "ANALISE")}: ${conclusion}`,
     `${withEmoji("⏳", "PREVISÃO DE NORMALIZAÇÃO")}: Sem previsão.`,
-    `${withEmoji("➡️", "PRÓXIMA AÇÃO")}: ${actions.join(" ")}`,
+    `${withEmoji("➡️", "DIRECIONAMENTO")}: ${actions.join(" ")}`,
     "",
     `${withEmoji("📎", "EVIDÊNCIAS ORGANIZADAS")}:`,
     ...formatMassivasEvidence(validRecords, evidenceLines),
   ].join("\n");
+}
+
+function buildMassivasConclusion(context) {
+  const {
+    affectedHosts,
+    validRecords,
+    linkDownRecords,
+    triggerGroups,
+    deliveryGroups,
+    operatorGroups,
+    multipleApproaches,
+    simultaneous,
+    repeatedRestart,
+  } = context;
+
+  if (!validRecords.length) {
+    return "Sem alarmes ativos retornados para os hosts informados. Validar se os hostnames foram colados conforme cadastro do Zabbix ou se a falha já normalizou antes da consulta.";
+  }
+
+  const hostText = affectedHosts.length ? `Host(s) envolvido(s): ${affectedHosts.join(", ")}.` : "Nenhum hostname no padrão BR-UF-CNL-POP-FUNÇÃO-NN foi identificado nos alarmes.";
+  const mainHost = affectedHosts[0] || "host afetado";
+  const triggerText = summarizeGroups(triggerGroups, triggerCatalog, "gatilho");
+  const deliveryText = summarizeGroups(deliveryGroups, deliveryTypeCatalog, "entrega");
+  const operatorText = summarizeOperators(operatorGroups);
+  const interfaceText = summarizeInterfaces(validRecords);
+  const firstTime = validRecords.map((record) => record.time).filter(Boolean).sort()[0] || "";
+  const timeText = firstTime ? ` Início mais antigo identificado: ${firstTime}.` : "";
+  const technicalContext = [triggerText, deliveryText, operatorText, interfaceText].filter(Boolean).join(" ");
+
+  if (repeatedRestart) {
+    return `${hostText}${timeText} Identificado padrão de reinicialização recorrente em ${mainHost}, indicando maior probabilidade de instabilidade local do equipamento, energia, hardware ou software. ${technicalContext}`.trim();
+  }
+
+  if (multipleApproaches && simultaneous) {
+    return `${hostText}${timeText} As evidências indicam queda simultânea de abordagens distintas em hosts relacionados, cenário compatível com isolamento de site/equipamento por perda de caminhos de transporte. ${technicalContext}`.trim();
+  }
+
+  if (multipleApproaches) {
+    return `${hostText}${timeText} Foram identificadas múltiplas interfaces/transportes em falha envolvendo mais de um host. O cenário sugere degradação ou isolamento parcial, exigindo validação de topologia antes de tratar como falha isolada de porta. ${technicalContext}`.trim();
+  }
+
+  if (linkDownRecords.length) {
+    const record = linkDownRecords[0];
+    const side = record.localInterface ? `na interface local ${record.localInterface}` : "em interface monitorada";
+    const remote = record.interfaceData.remotePort ? ` com referência à porta/interface remota ${record.interfaceData.remotePort}` : "";
+    return `${hostText}${timeText} Identificado link/interface down ${side}${remote}. A evidência aponta para falha provável no transporte/circuito, porta física ou equipamento vizinho associado. ${technicalContext}`.trim();
+  }
+
+  return `${hostText}${timeText} Os alarmes coletados não formam um padrão único de causa raiz. Priorizar correlação temporal, topologia dos hosts e validação das interfaces citadas nas evidências antes do acionamento definitivo. ${technicalContext}`.trim();
+}
+
+function summarizeGroups(groups, catalog, fallbackLabel) {
+  const entries = Object.entries(groups);
+  if (!entries.length) return "";
+  return `${fallbackLabel[0].toUpperCase()}${fallbackLabel.slice(1)}(s): ${entries.map(([key, count]) => {
+    const label = Array.isArray(catalog[key]) ? catalog[key][0] : catalog[key];
+    return `${key}${label ? ` (${label})` : ""}, ${count} ocorrência${count > 1 ? "s" : ""}`;
+  }).join("; ")}.`;
+}
+
+function summarizeOperators(groups) {
+  const entries = Object.entries(groups);
+  if (!entries.length) return "";
+  return `Operadora(s)/responsável(is) extraído(s) da nomenclatura: ${entries.map(([key, count]) => `${key}, ${count} ocorrência${count > 1 ? "s" : ""}`).join("; ")}.`;
+}
+
+function summarizeInterfaces(records) {
+  const capacities = uniqueValues(records.map((record) => record.interfaceData.capacity).filter(Boolean));
+  const interfaceTypes = uniqueValues(records.map((record) => record.interfaceData.interfaceType).filter(Boolean));
+  const localInterfaces = uniqueValues(records.map((record) => record.localInterface).filter(Boolean));
+  const details = [];
+  if (localInterfaces.length) details.push(`interfaces locais ${localInterfaces.slice(0, 4).join(", ")}`);
+  if (capacities.length) details.push(`capacidade ${capacities.join(", ")}`);
+  if (interfaceTypes.length) details.push(`tipo ${interfaceTypes.map((type) => `${type} (${interfaceTypeCatalog[type.replace(/\d+$/, "")] || "tipo não catalogado"})`).join(", ")}`);
+  return details.length ? `Dados técnicos: ${details.join("; ")}.` : "";
 }
 
 function parseMassivaAlarmLine(line) {
@@ -825,13 +940,19 @@ function inferDeliveryType(tokens) {
 
 function inferInterfaceOperator(tokens, deliveryType) {
   const knownOperator = tokens.find((token) => getPartnerContact(token) || carrierProfiles[token]);
-  if (knownOperator) return knownOperator;
+  if (knownOperator) return normalizeInterfaceOperator(knownOperator);
 
   const deliveryIndex = tokens.findIndex((token) => token === deliveryType || (deliveryType === "DWD" && token === "DWDM"));
   if (deliveryIndex < 0 || tokens.length - deliveryIndex > 4) return "";
 
   const candidate = tokens.slice(deliveryIndex + 1).find((token) => isLikelyOperatorToken(token));
-  return candidate || "";
+  return candidate ? normalizeInterfaceOperator(candidate) : "";
+}
+
+function normalizeInterfaceOperator(token) {
+  const value = String(token || "").toUpperCase();
+  const known = carrierDetectionOptions().find((option) => value === option.match || value.startsWith(`${option.match}-`) || value.startsWith(`${option.match}_`) || value.startsWith(`${option.match}:`));
+  return known ? known.value : value;
 }
 
 function isLikelyOperatorToken(token) {
@@ -854,47 +975,24 @@ function inferCapacityFromText(value) {
   return match ? `${match[1]}G` : "";
 }
 
-function describeHostFindings(hosts) {
-  if (!hosts.length) return [`${withEmoji("🖥️", "HOSTS")}: Nenhum hostname no padrão BR-UF-CNL-POP-FUNÇÃO-NN identificado nos alarmes.`];
-
-  const descriptions = hosts.map((host) => {
-    const info = parseHostnameStandard(host);
-    if (!info) return `- ${host}: fora do padrão esperado ou incompleto.`;
-    return `- ${host}: país ${info.country}, UF ${info.uf}, município/CNL ${info.city}, POP ${info.pop}, função ${info.role}, sequência ${info.sequence}.`;
-  });
-
-  return [`${withEmoji("🖥️", "HOSTS ENVOLVIDOS")}:`, ...descriptions];
-}
-
-function describeInterfaceFindings(records, triggerGroups, deliveryGroups, operatorGroups) {
-  const lines = [];
-  const triggers = Object.entries(triggerGroups).map(([trigger, count]) => `${trigger} (${triggerCatalog[trigger]?.[0] || "gatilho não catalogado"}, ${count} ocorrência${count > 1 ? "s" : ""})`);
-  const deliveries = Object.entries(deliveryGroups).map(([delivery, count]) => `${delivery} (${deliveryTypeCatalog[delivery] || "entrega não catalogada"}, ${count})`);
-  const operators = Object.entries(operatorGroups).map(([operator, count]) => `${operator} (${count})`);
-  const capacities = uniqueValues(records.map((record) => record.interfaceData.capacity).filter(Boolean));
-  const interfaceTypes = uniqueValues(records.map((record) => record.interfaceData.interfaceType).filter(Boolean));
-
-  lines.push(`${withEmoji("🔌", "INTERFACES/NOMENCLATURA")}: gatilhos ${triggers.length ? triggers.join("; ") : "não identificados"}; entregas ${deliveries.length ? deliveries.join("; ") : "não identificadas"}; operadoras ${operators.length ? operators.join("; ") : "não identificadas"}.`);
-  if (capacities.length) lines.push(`${withEmoji("⚡", "CAPACIDADE IDENTIFICADA")}: ${capacities.join(", ")}.`);
-  if (interfaceTypes.length) lines.push(`${withEmoji("🧩", "TIPO DE INTERFACE")}: ${interfaceTypes.map((type) => `${type} (${interfaceTypeCatalog[type.replace(/\d+$/, "")] || "tipo não catalogado"})`).join(", ")}.`);
-
-  return lines;
-}
-
 function suggestMassivasActions(context) {
   const actions = [];
+  const operators = Object.keys(context.operatorGroups || {});
+  const responsible = operators.length ? operators.join(", ") : "";
 
   if (context.repeatedRestart) {
     actions.push("Acionar Infra para validação local do equipamento, energia, hardware e logs de reboot.");
   }
 
   if (context.multipleApproaches && context.simultaneous) {
-    actions.push("Acionar Infra para validação de isolamento do host/site e acionar TX/Transporte para investigação das abordagens simultaneamente indisponíveis.");
+    actions.push(`Acionar Infra para validação de possível isolamento do host/site e acionar TX/Transporte para investigar as abordagens que caíram no mesmo intervalo${responsible ? `, envolvendo ${responsible}` : ""}.`);
   } else if (context.linkDownRecords.length) {
-    actions.push("Acionar TX/Transporte ou parceiro responsável pelo circuito/porta indicada nas evidências.");
+    actions.push(responsible
+      ? `Acionar TX/Transporte e o parceiro/operadora ${responsible} para validação do circuito, porta e equipamento vizinho indicados nas evidências.`
+      : "Acionar TX/Transporte para validação do circuito, porta e equipamento vizinho indicados nas evidências.");
   }
 
-  if (!actions.length) actions.push("Manter acompanhamento, validar topologia e correlacionar novos alarmes.");
+  if (!actions.length) actions.push("Validar topologia, correlação temporal e novos alarmes antes de definir acionamento externo.");
   actions.push("Anexar as evidências abaixo no chamado e atualizar conforme retorno das áreas acionadas.");
 
   return actions;
@@ -984,7 +1082,7 @@ function currentMassivasStep() {
 }
 
 function showMassivasStep(step) {
-  const nextStep = Math.min(Math.max(step, 1), 3);
+  const nextStep = Math.min(Math.max(step, 1), 5);
   document.querySelectorAll(".massivas-step").forEach((item) => {
     const isActive = Number(item.dataset.massivasStep) === nextStep;
     item.classList.toggle("is-active", isActive);
@@ -995,12 +1093,12 @@ function showMassivasStep(step) {
   });
 
   updateMassivasStepper(nextStep);
-  if (fields.massivasStatus) fields.massivasStatus.textContent = `Passo ${nextStep} de 3`;
+  if (fields.massivasStatus) fields.massivasStatus.textContent = `Passo ${nextStep} de 5`;
 }
 
 function updateMassivasStepper(step) {
   const progressFill = fields.massivasProgressFill;
-  if (progressFill) progressFill.style.width = `${(step / 3) * 100}%`;
+  if (progressFill) progressFill.style.width = `${(step / 5) * 100}%`;
 
   document.querySelectorAll("[data-massivas-step-nav]").forEach((button) => {
     const buttonStep = Number(button.dataset.massivasStepNav);
@@ -1183,6 +1281,352 @@ function buildPreviewTooltipContent(button) {
   `;
 }
 
+function initNetworkOceanBackground(canvas) {
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+  const themes = {
+    light: {
+      fog: 0x07111f,
+      water: 0x79f1dd,
+      mesh: 0x3ed8c7,
+      stream: [0x22d3ee, 0xf2b84b, 0x7dd3c7, 0x4ca5ff],
+      pulse: 0xf2b84b,
+      beacon: 0x9adff4,
+      ambient: 0xffffff,
+      ambientIntensity: 0.58,
+      light: 0x9bd8ff,
+      lightIntensity: 1.7,
+      light2: 0x69e2cf,
+      light2Intensity: 0.9,
+    },
+    dark: {
+      fog: 0x050506,
+      water: 0xe5092f,
+      mesh: 0xb80d28,
+      stream: [0xe5092f, 0xff2448, 0xb80d28, 0x7a0718],
+      pulse: 0xff2448,
+      beacon: 0xe5092f,
+      ambient: 0x260006,
+      ambientIntensity: 0.86,
+      light: 0xff1744,
+      lightIntensity: 2.7,
+      light2: 0xb80d28,
+      light2Intensity: 1.0,
+    },
+  };
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x07111f, 0.055);
+  const camera = new THREE.PerspectiveCamera(62, 1, 0.1, 100);
+  camera.position.set(0, 5.9, 8.1);
+  camera.lookAt(0, -0.42, -2.4);
+
+  const group = new THREE.Group();
+  group.rotation.x = -0.18;
+  scene.add(group);
+
+  const columns = 72;
+  const rows = 46;
+  const xSpan = 25;
+  const zSpan = 18;
+  const nodeCount = columns * rows;
+  const surfacePositions = new Float32Array(nodeCount * 3);
+  const basePoints = [];
+
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      const x = (column / (columns - 1) - 0.5) * xSpan;
+      const z = (row / (rows - 1) - 0.5) * zSpan - 1.2;
+      basePoints.push({ x, z });
+    }
+  }
+
+  const surfaceGeometry = new THREE.BufferGeometry();
+  surfaceGeometry.setAttribute("position", new THREE.BufferAttribute(surfacePositions, 3));
+  const surfaceMaterial = new THREE.PointsMaterial({
+    color: 0x79f1dd,
+    size: 0.043,
+    transparent: true,
+    opacity: 0.78,
+    depthWrite: false,
+  });
+  const surface = new THREE.Points(surfaceGeometry, surfaceMaterial);
+  group.add(surface);
+
+  const linkPairs = [];
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      const current = row * columns + column;
+      if (column < columns - 1) linkPairs.push([current, current + 1]);
+      if (row < rows - 1 && column % 2 === 0) linkPairs.push([current, current + columns]);
+    }
+  }
+
+  const linkPositions = new Float32Array(linkPairs.length * 2 * 3);
+  const linkGeometry = new THREE.BufferGeometry();
+  linkGeometry.setAttribute("position", new THREE.BufferAttribute(linkPositions, 3));
+  const linkMaterial = new THREE.LineBasicMaterial({
+    color: 0x3ed8c7,
+    transparent: true,
+    opacity: 0.18,
+    depthWrite: false,
+  });
+  const links = new THREE.LineSegments(linkGeometry, linkMaterial);
+  group.add(links);
+
+  const streamMaterials = [0x22d3ee, 0xf2b84b, 0x7dd3c7, 0x4ca5ff].map((color) => new THREE.LineBasicMaterial({
+    color,
+    transparent: true,
+    opacity: 0.62,
+    depthWrite: false,
+  }));
+  const streams = Array.from({ length: 10 }, (_, index) => {
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(90 * 3);
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    const line = new THREE.Line(geometry, streamMaterials[index % streamMaterials.length]);
+    line.userData = {
+      baseZ: -8.4 + index * 1.82,
+      phase: index * 0.74,
+      lift: 0.1 + (index % 3) * 0.055,
+    };
+    group.add(line);
+    return line;
+  });
+
+  const pulseMaterial = new THREE.MeshBasicMaterial({ color: 0xf2b84b, transparent: true, opacity: 0.9 });
+  const pulses = [];
+  streams.forEach((stream, streamIndex) => {
+    for (let index = 0; index < 2; index += 1) {
+      const pulse = new THREE.Mesh(new THREE.SphereGeometry(0.055, 14, 10), pulseMaterial.clone());
+      pulse.userData = {
+        stream,
+        offset: (streamIndex * 0.11 + index * 0.43) % 1,
+      };
+      pulses.push(pulse);
+      group.add(pulse);
+    }
+  });
+
+  const beaconMaterial = new THREE.MeshStandardMaterial({
+    color: 0x9adff4,
+    emissive: 0x0b6f6a,
+    emissiveIntensity: 0.75,
+    roughness: 0.2,
+    metalness: 0.2,
+  });
+  const beacons = [];
+  const beaconIndexes = [
+    [7, 7], [18, 15], [34, 9], [50, 18], [63, 11],
+    [10, 30], [28, 35], [45, 31], [64, 37],
+  ];
+  beaconIndexes.forEach(([column, row], index) => {
+    const beacon = new THREE.Group();
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.11, 18, 12), beaconMaterial);
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(0.24, 0.006, 8, 64),
+      new THREE.MeshBasicMaterial({ color: 0x9adff4, transparent: true, opacity: 0.42 }),
+    );
+    ring.rotation.x = Math.PI / 2;
+    beacon.userData = { column, row, index, core, ring };
+    beacon.add(core, ring);
+    beacons.push(beacon);
+    group.add(beacon);
+  });
+
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.58);
+  scene.add(ambientLight);
+  const light = new THREE.PointLight(0x9bd8ff, 1.7, 45);
+  light.position.set(0, 5.5, 6.8);
+  scene.add(light);
+  const light2 = new THREE.PointLight(0x69e2cf, 0.9, 32);
+  light2.position.set(-5, 1.5, 2.4);
+  scene.add(light2);
+
+  const pointer = { x: 0, y: 0 };
+  const target = { x: 0, y: 0 };
+  const mouseWave = { x: 0, z: -1.2, strength: 0 };
+  const clickRipples = [];
+
+  function pointerToOcean(clientX, clientY) {
+    const normalizedX = clientX / window.innerWidth - 0.5;
+    const normalizedY = clientY / window.innerHeight - 0.5;
+    return {
+      x: normalizedX * xSpan * 0.92,
+      z: normalizedY * zSpan * 0.82 - 1.2,
+    };
+  }
+
+  function waveAt(x, z, seconds) {
+    const mouseDistance = Math.hypot(x - mouseWave.x, z - mouseWave.z);
+    const mouseInfluence = Math.cos(mouseDistance * 2.7 - seconds * 4.8) * Math.exp(-mouseDistance * 0.36) * mouseWave.strength;
+    const rippleInfluence = clickRipples.reduce((sum, ripple) => {
+      const age = seconds - ripple.startedAt;
+      if (age < 0 || age > 4.2) return sum;
+      const distance = Math.hypot(x - ripple.x, z - ripple.z);
+      const ring = Math.sin(distance * 4.4 - age * 7.2);
+      const envelope = Math.exp(-Math.abs(distance - age * 2.2) * 0.85) * Math.exp(-age * 0.42);
+      return sum + ring * envelope * ripple.force;
+    }, 0);
+
+    return (
+      Math.sin(x * 0.78 + seconds * 0.92) * 0.22 +
+      Math.cos(z * 0.9 + seconds * 0.68) * 0.18 +
+      Math.sin((x + z) * 0.38 + seconds * 1.25) * 0.12 +
+      mouseInfluence +
+      rippleInfluence
+    );
+  }
+
+  function setPositionAt(array, pointIndex, x, y, z) {
+    array[pointIndex * 3] = x;
+    array[pointIndex * 3 + 1] = y;
+    array[pointIndex * 3 + 2] = z;
+  }
+
+  function updateSurface(seconds) {
+    basePoints.forEach((point, index) => {
+      const y = waveAt(point.x, point.z, seconds);
+      setPositionAt(surfacePositions, index, point.x, y, point.z);
+    });
+    surfaceGeometry.attributes.position.needsUpdate = true;
+
+    linkPairs.forEach(([left, right], index) => {
+      const leftOffset = left * 3;
+      const rightOffset = right * 3;
+      const segmentOffset = index * 6;
+      linkPositions[segmentOffset] = surfacePositions[leftOffset];
+      linkPositions[segmentOffset + 1] = surfacePositions[leftOffset + 1];
+      linkPositions[segmentOffset + 2] = surfacePositions[leftOffset + 2];
+      linkPositions[segmentOffset + 3] = surfacePositions[rightOffset];
+      linkPositions[segmentOffset + 4] = surfacePositions[rightOffset + 1];
+      linkPositions[segmentOffset + 5] = surfacePositions[rightOffset + 2];
+    });
+    linkGeometry.attributes.position.needsUpdate = true;
+  }
+
+  function streamPoint(stream, progress, seconds) {
+    const x = (progress - 0.5) * 26.4;
+    const z = stream.userData.baseZ + Math.sin(progress * Math.PI * 4 + stream.userData.phase + seconds * 0.55) * 0.34;
+    const y = waveAt(x, z, seconds) + stream.userData.lift + Math.sin(progress * Math.PI * 2 + seconds) * 0.055;
+    return new THREE.Vector3(x, y, z);
+  }
+
+  function updateStreams(seconds) {
+    streams.forEach((stream) => {
+      const positions = stream.geometry.attributes.position.array;
+      const pointCount = positions.length / 3;
+      for (let index = 0; index < pointCount; index += 1) {
+        const progress = index / (pointCount - 1);
+        const point = streamPoint(stream, progress, seconds);
+        setPositionAt(positions, index, point.x, point.y, point.z);
+      }
+      stream.geometry.attributes.position.needsUpdate = true;
+    });
+
+    pulses.forEach((pulse, index) => {
+      const progress = (seconds * 0.09 + pulse.userData.offset) % 1;
+      pulse.position.copy(streamPoint(pulse.userData.stream, progress, seconds));
+      pulse.scale.setScalar(0.75 + Math.sin(seconds * 4.2 + index) * 0.22);
+      pulse.material.opacity = 0.45 + Math.abs(Math.sin(seconds * 3.2 + index)) * 0.48;
+    });
+  }
+
+  function updateBeacons(seconds) {
+    beacons.forEach((beacon) => {
+      const { column, row, index, core, ring } = beacon.userData;
+      const point = basePoints[row * columns + column];
+      beacon.position.set(point.x, waveAt(point.x, point.z, seconds) + 0.08, point.z);
+      core.scale.setScalar(0.86 + Math.sin(seconds * 2.1 + index) * 0.18);
+      ring.rotation.z = seconds * (0.45 + index * 0.03);
+      ring.scale.setScalar(1 + Math.sin(seconds * 1.3 + index) * 0.12);
+    });
+  }
+
+  function applyOceanTheme() {
+    const dark = document.body.classList.contains("theme-dark-red");
+    const palette = dark ? themes.dark : themes.light;
+    scene.fog.color.setHex(palette.fog);
+    surfaceMaterial.color.setHex(palette.water);
+    surfaceMaterial.opacity = dark ? 0.78 : 0.7;
+    linkMaterial.color.setHex(palette.mesh);
+    linkMaterial.opacity = dark ? 0.28 : 0.18;
+    streamMaterials.forEach((material, index) => {
+      material.color.setHex(palette.stream[index % palette.stream.length]);
+      material.opacity = dark ? 0.82 : 0.62;
+    });
+    pulses.forEach((pulse) => pulse.material.color.setHex(palette.pulse));
+    beaconMaterial.color.setHex(palette.beacon);
+    beaconMaterial.emissive.setHex(palette.beacon);
+    beacons.forEach((beacon) => beacon.userData.ring.material.color.setHex(palette.beacon));
+    ambientLight.color.setHex(palette.ambient);
+    ambientLight.intensity = palette.ambientIntensity;
+    light.color.setHex(palette.light);
+    light.intensity = palette.lightIntensity;
+    light2.color.setHex(palette.light2);
+    light2.intensity = palette.light2Intensity;
+  }
+
+  window.addEventListener("pointermove", (event) => {
+    pointer.x = (event.clientX / window.innerWidth - 0.5) * 2;
+    pointer.y = (event.clientY / window.innerHeight - 0.5) * 2;
+    const oceanPoint = pointerToOcean(event.clientX, event.clientY);
+    mouseWave.x = oceanPoint.x;
+    mouseWave.z = oceanPoint.z;
+    mouseWave.strength = 0.62;
+  });
+
+  window.addEventListener("pointerdown", (event) => {
+    const oceanPoint = pointerToOcean(event.clientX, event.clientY);
+    clickRipples.push({
+      ...oceanPoint,
+      startedAt: performance.now() * 0.001,
+      force: 0.95,
+    });
+    if (clickRipples.length > 8) clickRipples.shift();
+  });
+
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function resize() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    renderer.setSize(width, height, false);
+    camera.aspect = width / height;
+    camera.position.z = height > width ? 10.8 : 8.1;
+    camera.position.y = height > width ? 6.4 : 5.9;
+    camera.lookAt(0, -0.42, -2.4);
+    camera.updateProjectionMatrix();
+  }
+
+  function animate(time) {
+    const seconds = time * 0.001;
+    target.x += (pointer.x - target.x) * 0.045;
+    target.y += (pointer.y - target.y) * 0.045;
+    mouseWave.strength += (0.24 - mouseWave.strength) * 0.025;
+    for (let index = clickRipples.length - 1; index >= 0; index -= 1) {
+      if (seconds - clickRipples[index].startedAt > 4.2) clickRipples.splice(index, 1);
+    }
+    group.rotation.y = target.x * 0.07;
+    group.rotation.x = -0.12 + target.y * 0.045;
+    updateSurface(seconds);
+    updateStreams(seconds);
+    updateBeacons(seconds);
+    renderer.render(scene, camera);
+    if (!prefersReducedMotion) requestAnimationFrame(animate);
+  }
+
+  window.addEventListener("resize", resize);
+  window.addEventListener("noc-theme-change", applyOceanTheme);
+  applyOceanTheme();
+  resize();
+  updateSurface(0);
+  updateStreams(0);
+  updateBeacons(0);
+  if (!prefersReducedMotion) requestAnimationFrame(animate);
+}
+
 function initThreeBackground() {
   const canvas = document.getElementById("threeBackground");
   if (!canvas) return;
@@ -1194,8 +1638,56 @@ function initThreeBackground() {
   if (canvas.dataset.threeInitialized === "true") return;
   canvas.dataset.threeInitialized = "true";
 
+  initNetworkOceanBackground(canvas);
+  return;
+
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+  const themes = {
+    light: {
+      fog: 0x07111f,
+      core: 0x79f1dd,
+      coreEmissive: 0x103b4a,
+      halo: 0x4ca5ff,
+      innerRing: 0xf2b84b,
+      node: 0x7dd3c7,
+      nodeEmissive: 0x0b6f6a,
+      line: 0xf2b84b,
+      particles: 0x9adff4,
+      router: 0x12324a,
+      routerPanel: 0x0b6f6a,
+      routerPort: 0xf2b84b,
+      wavelengths: [0x22d3ee, 0xf2b84b, 0x7dd3c7, 0x4ca5ff],
+      ambient: 0xffffff,
+      ambientIntensity: 0.52,
+      light: 0x9bd8ff,
+      lightIntensity: 1.6,
+      light2: 0x69e2cf,
+      light2Intensity: 0.9,
+    },
+    dark: {
+      fog: 0x050506,
+      core: 0xe5092f,
+      coreEmissive: 0x650010,
+      halo: 0xe5092f,
+      innerRing: 0xff173f,
+      node: 0xff2448,
+      nodeEmissive: 0x8a0018,
+      line: 0xe5092f,
+      particles: 0xff173f,
+      router: 0x16080b,
+      routerPanel: 0x4a0612,
+      routerPort: 0xff2448,
+      wavelengths: [0xe5092f, 0xff2448, 0xb80d28, 0x7a0718],
+      ambient: 0x240006,
+      ambientIntensity: 0.82,
+      light: 0xff1744,
+      lightIntensity: 2.55,
+      light2: 0xb80d28,
+      light2Intensity: 0.8,
+    },
+  };
 
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x07111f, 0.04);
@@ -1205,34 +1697,7 @@ function initThreeBackground() {
   const group = new THREE.Group();
   scene.add(group);
 
-  const core = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(1.15, 2),
-    new THREE.MeshStandardMaterial({
-      color: 0x79f1dd,
-      emissive: 0x103b4a,
-      emissiveIntensity: 0.9,
-      roughness: 0.18,
-      metalness: 0.35,
-      flatShading: true,
-    }),
-  );
-  group.add(core);
-
-  const halo = new THREE.Mesh(
-    new THREE.TorusGeometry(2.55, 0.035, 12, 220),
-    new THREE.MeshBasicMaterial({ color: 0x4ca5ff, transparent: true, opacity: 0.45 }),
-  );
-  halo.rotation.x = Math.PI / 2.2;
-  group.add(halo);
-
-  const innerRing = new THREE.Mesh(
-    new THREE.TorusGeometry(1.8, 0.018, 12, 180),
-    new THREE.MeshBasicMaterial({ color: 0xf2b84b, transparent: true, opacity: 0.32 }),
-  );
-  innerRing.rotation.y = Math.PI / 4;
-  group.add(innerRing);
-
-  const nodeGeometry = new THREE.IcosahedronGeometry(0.08, 1);
+  const nodeGeometry = new THREE.SphereGeometry(0.105, 18, 12);
   const nodeMaterial = new THREE.MeshStandardMaterial({
     color: 0x7dd3c7,
     emissive: 0x0b6f6a,
@@ -1240,26 +1705,169 @@ function initThreeBackground() {
     roughness: 0.32,
     metalness: 0.25,
   });
+  const routerMaterial = new THREE.MeshStandardMaterial({
+    color: 0x12324a,
+    emissive: 0x07111f,
+    emissiveIntensity: 0.28,
+    roughness: 0.38,
+    metalness: 0.42,
+  });
+  const routerPanelMaterial = new THREE.MeshStandardMaterial({
+    color: 0x0b6f6a,
+    emissive: 0x0b6f6a,
+    emissiveIntensity: 0.35,
+    roughness: 0.45,
+    metalness: 0.25,
+  });
+  const routerPortMaterial = new THREE.MeshBasicMaterial({ color: 0xf2b84b, transparent: true, opacity: 0.9 });
+  const routerEdgeMaterial = new THREE.LineBasicMaterial({ color: 0x9adff4, transparent: true, opacity: 0.34 });
 
+  const backbonePositions = [
+    [-5.2, 1.4, -0.8],
+    [-3.4, -1.2, 0.45],
+    [-1.25, 1.0, -0.25],
+    [0.9, -1.05, 0.35],
+    [3.15, 1.15, -0.55],
+    [5.05, -0.7, 0.2],
+  ];
   const nodes = [];
-  for (let index = 0; index < 54; index += 1) {
-    const angle = index * 0.72;
-    const radius = 2.2 + (index % 9) * 0.28;
-    const node = new THREE.Mesh(nodeGeometry, nodeMaterial);
-    node.position.set(
-      Math.cos(angle) * radius,
-      Math.sin(angle * 1.17) * 1.8,
-      Math.sin(angle) * radius * 0.7,
-    );
-    nodes.push(node);
-    group.add(node);
+  const routers = [];
+  const portLights = [];
+
+  function createRouter(position, index) {
+    const router = new THREE.Group();
+    router.position.set(position[0], position[1], position[2]);
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.34, 0.24), routerMaterial);
+    body.rotation.y = index % 2 ? -0.12 : 0.12;
+    router.add(body);
+
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.055, 0.255), routerPanelMaterial);
+    panel.position.y = -0.06;
+    panel.position.z = 0.014;
+    panel.rotation.y = body.rotation.y;
+    router.add(panel);
+
+    const edge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(0.64, 0.36, 0.25)), routerEdgeMaterial);
+    edge.rotation.y = body.rotation.y;
+    router.add(edge);
+
+    for (let portIndex = 0; portIndex < 5; portIndex += 1) {
+      const port = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.025, 0.018), routerPortMaterial.clone());
+      port.position.set(-0.2 + portIndex * 0.1, -0.105, 0.138);
+      port.rotation.y = body.rotation.y;
+      portLights.push(port);
+      router.add(port);
+    }
+
+    routers.push(router);
+    group.add(router);
+    return router;
   }
 
-  const linePoints = nodes.map((node) => node.position);
-  const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
-  const lineMaterial = new THREE.LineBasicMaterial({ color: 0xf2b84b, transparent: true, opacity: 0.34 });
-  const line = new THREE.LineLoop(lineGeometry, lineMaterial);
-  group.add(line);
+  backbonePositions.forEach((position, index) => {
+    const node = new THREE.Mesh(nodeGeometry, nodeMaterial);
+    node.position.set(position[0], position[1], position[2]);
+    node.scale.setScalar(index === 0 || index === backbonePositions.length - 1 ? 1.35 : 1.1);
+    nodes.push(node);
+    group.add(node);
+    createRouter(position, index);
+  });
+
+  const accessNodes = [];
+  backbonePositions.forEach((position, backboneIndex) => {
+    for (let index = 0; index < 3; index += 1) {
+      const angle = backboneIndex * 0.9 + index * 2.1;
+      const node = new THREE.Mesh(nodeGeometry, nodeMaterial);
+      node.scale.setScalar(0.58);
+      node.position.set(
+        position[0] + Math.cos(angle) * (0.62 + index * 0.16),
+        position[1] + Math.sin(angle) * (0.42 + index * 0.12),
+        position[2] - 0.65 - index * 0.22,
+      );
+      accessNodes.push({ node, parent: nodes[backboneIndex] });
+      group.add(node);
+    }
+  });
+
+  function makeLine(points, material) {
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const line = new THREE.Line(geometry, material);
+    group.add(line);
+    return line;
+  }
+
+  const lineMaterial = new THREE.LineBasicMaterial({ color: 0xf2b84b, transparent: true, opacity: 0.44 });
+  const dwdmMaterial = new THREE.LineBasicMaterial({ color: 0x4ca5ff, transparent: true, opacity: 0.38 });
+  const accessLineMaterial = new THREE.LineBasicMaterial({ color: 0x9adff4, transparent: true, opacity: 0.22 });
+  const gridMaterial = new THREE.LineBasicMaterial({ color: 0x9adff4, transparent: true, opacity: 0.11 });
+  const wavelengthMaterials = [0x22d3ee, 0xf2b84b, 0x7dd3c7, 0x4ca5ff].map((color) => new THREE.MeshBasicMaterial({
+    color,
+    transparent: true,
+    opacity: 0.36,
+  }));
+  const fiberTubes = [];
+  const backboneLine = makeLine(nodes.map((node) => node.position), lineMaterial);
+
+  function makeFiberTube(start, end, offset, material) {
+    const direction = end.clone().sub(start);
+    const mid = start.clone().lerp(end, 0.5);
+    mid.y += Math.sin(start.x + end.x) * 0.32;
+    mid.z += 0.42 + Math.abs(offset) * 0.7;
+    const side = new THREE.Vector3(-direction.y, direction.x, 0).normalize().multiplyScalar(offset);
+    const curve = new THREE.CatmullRomCurve3([
+      start.clone().add(side),
+      mid.clone().add(side),
+      end.clone().add(side),
+    ]);
+    const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 72, 0.018, 8, false), material);
+    group.add(tube);
+    fiberTubes.push(tube);
+    return tube;
+  }
+
+  for (let index = 0; index < nodes.length - 1; index += 1) {
+    [-0.18, -0.06, 0.06, 0.18].forEach((offset, materialIndex) => {
+      makeFiberTube(nodes[index].position, nodes[index + 1].position, offset, wavelengthMaterials[materialIndex]);
+    });
+  }
+
+  const dwdmLines = [];
+  for (let index = 0; index < nodes.length - 1; index += 1) {
+    const start = nodes[index].position;
+    const end = nodes[index + 1].position;
+    const mid = start.clone().lerp(end, 0.5);
+    const normal = new THREE.Vector3(-(end.y - start.y), end.x - start.x, 0).normalize().multiplyScalar(0.26);
+    dwdmLines.push(makeLine([start.clone().add(normal), mid.clone().add(normal.multiplyScalar(1.4)), end.clone().add(normal)], dwdmMaterial));
+  }
+
+  accessNodes.forEach(({ node, parent }) => {
+    makeLine([parent.position, node.position], accessLineMaterial);
+  });
+
+  for (let x = -6; x <= 6; x += 1.5) {
+    makeLine([new THREE.Vector3(x, -3.2, -2.2), new THREE.Vector3(x, 3.2, -2.2)], gridMaterial);
+  }
+  for (let y = -3; y <= 3; y += 1.0) {
+    makeLine([new THREE.Vector3(-6.2, y, -2.2), new THREE.Vector3(6.2, y, -2.2)], gridMaterial);
+  }
+
+  const ringMaterial = new THREE.MeshBasicMaterial({ color: 0x4ca5ff, transparent: true, opacity: 0.28 });
+  const opticalRings = nodes.slice(1, -1).map((node, index) => {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.42 + index * 0.025, 0.008, 8, 80), ringMaterial);
+    ring.position.copy(node.position);
+    ring.rotation.x = Math.PI / 2.1;
+    group.add(ring);
+    return ring;
+  });
+
+  const pulseMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.86 });
+  const pulses = Array.from({ length: 7 }, (_, index) => {
+    const pulse = new THREE.Mesh(new THREE.SphereGeometry(0.045, 12, 8), pulseMaterial);
+    pulse.userData.offset = index / 7;
+    group.add(pulse);
+    return pulse;
+  });
 
   const particleCount = 180;
   const particlePositions = new Float32Array(particleCount * 3);
@@ -1278,7 +1886,8 @@ function initThreeBackground() {
   const particles = new THREE.Points(particleGeometry, particleMaterial);
   scene.add(particles);
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.52));
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.52);
+  scene.add(ambientLight);
   const light = new THREE.PointLight(0x9bd8ff, 1.6, 40);
   light.position.set(4, 4, 7);
   scene.add(light);
@@ -1288,6 +1897,42 @@ function initThreeBackground() {
 
   const pointer = { x: 0, y: 0 };
   const target = { x: 0, y: 0 };
+
+  function applyThreeTheme() {
+    const palette = document.body.classList.contains("theme-dark-red") ? themes.dark : themes.light;
+    scene.fog.color.setHex(palette.fog);
+    nodeMaterial.color.setHex(palette.node);
+    nodeMaterial.emissive.setHex(palette.nodeEmissive);
+    routerMaterial.color.setHex(palette.router);
+    routerMaterial.emissive.setHex(palette.routerPanel);
+    routerPanelMaterial.color.setHex(palette.routerPanel);
+    routerPanelMaterial.emissive.setHex(palette.routerPanel);
+    routerPortMaterial.color.setHex(palette.routerPort);
+    portLights.forEach((port) => port.material.color.setHex(palette.routerPort));
+    routerEdgeMaterial.color.setHex(palette.particles);
+    lineMaterial.color.setHex(palette.line);
+    lineMaterial.opacity = document.body.classList.contains("theme-dark-red") ? 0.7 : 0.44;
+    dwdmMaterial.color.setHex(palette.halo);
+    dwdmMaterial.opacity = document.body.classList.contains("theme-dark-red") ? 0.62 : 0.38;
+    accessLineMaterial.color.setHex(palette.particles);
+    gridMaterial.color.setHex(palette.particles);
+    ringMaterial.color.setHex(palette.halo);
+    ringMaterial.opacity = document.body.classList.contains("theme-dark-red") ? 0.5 : 0.28;
+    pulseMaterial.color.setHex(palette.innerRing);
+    pulseMaterial.opacity = document.body.classList.contains("theme-dark-red") ? 0.92 : 0.78;
+    wavelengthMaterials.forEach((material, index) => {
+      material.color.setHex(palette.wavelengths[index % palette.wavelengths.length]);
+      material.opacity = document.body.classList.contains("theme-dark-red") ? 0.62 : 0.36;
+    });
+    particleMaterial.color.setHex(palette.particles);
+    particleMaterial.opacity = document.body.classList.contains("theme-dark-red") ? 0.9 : 0.8;
+    ambientLight.color.setHex(palette.ambient);
+    ambientLight.intensity = palette.ambientIntensity;
+    light.color.setHex(palette.light);
+    light.intensity = palette.lightIntensity;
+    light2.color.setHex(palette.light2);
+    light2.intensity = palette.light2Intensity;
+  }
 
   window.addEventListener("pointermove", (event) => {
     pointer.x = (event.clientX / window.innerWidth - 0.5) * 2;
@@ -1311,12 +1956,33 @@ function initThreeBackground() {
 
     group.rotation.y = seconds * 0.18 + target.x * 0.26;
     group.rotation.x = Math.sin(seconds * 0.32) * 0.16 + target.y * 0.18;
-    core.rotation.y = seconds * 0.45;
-    halo.rotation.z = seconds * 0.2;
-    innerRing.rotation.x = Math.PI / 4 + seconds * 0.16;
     nodes.forEach((node, index) => {
-      node.scale.setScalar(1 + Math.sin(seconds * 1.7 + index) * 0.18);
+      const base = index === 0 || index === nodes.length - 1 ? 1.35 : 1.1;
+      node.scale.setScalar(base + Math.sin(seconds * 1.9 + index) * 0.1);
     });
+    routers.forEach((router, index) => {
+      router.rotation.z = Math.sin(seconds * 0.6 + index) * 0.025;
+      router.position.z = backbonePositions[index][2] + Math.sin(seconds * 0.9 + index) * 0.035;
+    });
+    portLights.forEach((port, index) => {
+      port.material.opacity = 0.42 + Math.abs(Math.sin(seconds * 3.4 + index * 0.7)) * 0.58;
+    });
+    accessNodes.forEach(({ node }, index) => {
+      node.scale.setScalar(0.58 + Math.sin(seconds * 2.2 + index) * 0.06);
+    });
+    opticalRings.forEach((ring, index) => {
+      ring.rotation.z = seconds * (0.35 + index * 0.08);
+      ring.scale.setScalar(1 + Math.sin(seconds * 1.4 + index) * 0.08);
+    });
+    pulses.forEach((pulse) => {
+      const progress = (seconds * 0.16 + pulse.userData.offset) % 1;
+      const scaled = progress * (nodes.length - 1);
+      const index = Math.min(Math.floor(scaled), nodes.length - 2);
+      const local = scaled - index;
+      pulse.position.copy(nodes[index].position).lerp(nodes[index + 1].position, local);
+      pulse.scale.setScalar(0.8 + Math.sin(seconds * 5 + pulse.userData.offset * 10) * 0.2);
+    });
+    backboneLine.material.opacity = lineMaterial.opacity + Math.sin(seconds * 1.3) * 0.08;
     particles.rotation.y = seconds * 0.06;
     particles.rotation.x = Math.sin(seconds * 0.12) * 0.08;
     renderer.render(scene, camera);
@@ -1324,6 +1990,8 @@ function initThreeBackground() {
   }
 
   window.addEventListener("resize", resize);
+  window.addEventListener("noc-theme-change", applyThreeTheme);
+  applyThreeTheme();
   resize();
   if (!prefersReducedMotion) requestAnimationFrame(animate);
 }
@@ -2270,6 +2938,8 @@ function getRawGeneratedText(kind) {
     contact: fields.contactOutput.value,
     charge: fields.chargeOutput.value,
     complete: buildComplete(),
+    "massivas-recognize": buildMassivasRecognize(),
+    "massivas-update": buildMassivasManualUpdate(),
   };
 
   const chargeMatch = kind.match(/^charge-(\d+)$/);
@@ -2332,6 +3002,14 @@ function getMissingFields(kind) {
     charge: [
       ["Protocolo externo ou chamado interno", () => getValue("externalTicket") || getValue("internalTicket")],
       ["Saudação", () => getValue("greeting")],
+    ],
+    "massivas-recognize": [
+      ["Assunto Bdesk da massiva", () => getValue("massivasBdeskSubject")],
+    ],
+    "massivas-update": [
+      ["Falado com", () => getValue("massivasUpdateSpokenWith")],
+      ["Previsão", () => getValue("massivasUpdateForecast")],
+      ["Próxima ação", () => getValue("massivasUpdateNextAction")],
     ],
     complete: [],
   };
@@ -2442,6 +3120,8 @@ function previewTitleFor(kind) {
     subject: "Assunto",
     recipients: "Destinatários",
     contact: "Contato do parceiro",
+    "massivas-recognize": "Reconhecer massiva",
+    "massivas-update": "Atualizacao massiva",
     "charge-0": "Mensagem padrão",
     "charge-1": "Mensagem padrão",
     "charge-2": "Mensagem padrão",
@@ -2530,6 +3210,7 @@ function loadDefaults() {
   const defaults = readDefaults();
   if (defaults.contact) setValue("contact", defaults.contact);
   if (defaults.requesterName) setValue("requesterName", defaults.requesterName);
+  applyTheme();
 }
 
 function saveDefaults() {
@@ -2537,9 +3218,11 @@ function saveDefaults() {
     contact: getValue("contact"),
     requesterName: getValue("requesterName"),
     useEmojis: fields.paramUseEmojis ? fields.paramUseEmojis.checked : useOperationalEmojis(),
+    darkTheme: fields.paramDarkTheme ? fields.paramDarkTheme.checked : useDarkTheme(),
   };
 
   localStorage.setItem("nocGeneratorDefaults", JSON.stringify(defaults));
+  applyTheme();
   setStatus("Padrões salvos neste navegador.");
   showToast("Padrões salvos.");
 }

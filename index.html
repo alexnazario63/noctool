@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>NOC TOOL</title>
+    <title>NOC IP TOOL</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,7 +13,7 @@
   </head>
   <body class="app-not-started">
     <canvas id="threeBackground" class="three-background" aria-hidden="true"></canvas>
-    <section class="launch-screen" id="launchScreen" aria-label="Apresentação NOC TOOL">
+    <section class="launch-screen" id="launchScreen" aria-label="Apresentação NOC IP TOOL">
       <div class="launch-modal animate__animated animate__fadeInUp">
         <div class="launch-grid">
           <div class="launch-copy">
@@ -21,22 +21,22 @@
               <span class="brand-mark" aria-hidden="true"><i data-lucide="radio-tower"></i></span>
               <div>
                 <p class="eyebrow">Developed by Alexsander</p>
-                <h1>NOC TOOL</h1>
+                <h1>NOC IP TOOL</h1>
               </div>
             </div>
-            <h2>Central de acionamentos NOC</h2>
-            <p>Escolha o fluxo automático para seguir os passos de abertura. A edição manual fica disponível dentro do fluxo.</p>
+            <h2>Changelog 3.0</h2>
+            <p>Ferramenta NOC IP para capacidades, massivas e análise de alarmes com fluxo guiado.</p>
             <ol>
-              <li>Cole os alarmes e confirme parceiro e tipo de falha.</li>
-              <li>Gere assunto Bdesk e texto de abertura.</li>
-              <li>Cole o chamado interno e reconheça os alarmes.</li>
-              <li>Gere o e-mail de acionamento.</li>
-              <li>Finalize e volte ao início.</li>
+              <li>Fluxo Capacidades com abertura, Bdesk, reconhecimento, e-mail e finalização.</li>
+              <li>Fluxo Massivas em 5 passos com textos de chamado e análise técnica ALPHA/TESTES.</li>
+              <li>Tema escuro com oceano de rede interativo para visualização inicial.</li>
+              <li>Integração Zabbix local e modo debug para testes manuais.</li>
+              <li>Padronizações de parceiros, contatos, emojis e mensagens operacionais.</li>
             </ol>
           </div>
         </div>
         <div class="launch-actions">
-          <button class="primary-button launch-action" id="startAutoButton" type="button"><i data-lucide="wand-sparkles"></i> INICIAR AUTO</button>
+          <button class="primary-button launch-action" id="startAutoButton" type="button"><i data-lucide="wand-sparkles"></i> Capacidades</button>
           <button class="ghost-button launch-action" id="startMassivasButton" type="button"><i data-lucide="layers-3"></i> MASSIVAS</button>
           <button class="ghost-button launch-action" id="parametersButton" type="button"><i data-lucide="sliders-horizontal"></i> Parâmetros</button>
         </div>
@@ -49,7 +49,7 @@
             <span class="brand-mark" aria-hidden="true"><i data-lucide="radio-tower"></i></span>
             <div>
               <p class="eyebrow">Fluxo automático</p>
-              <h1>NOC TOOL</h1>
+              <h1>NOC IP TOOL</h1>
             </div>
           </div>
           <p class="status" id="autoStatus" role="status" aria-live="polite">Passo 1 de 5</p>
@@ -179,10 +179,10 @@
             <span class="brand-mark" aria-hidden="true"><i data-lucide="layers-3"></i></span>
             <div>
               <p class="eyebrow">Fluxo massivas</p>
-              <h1>NOC TOOL</h1>
+              <h1>NOC IP TOOL</h1>
             </div>
           </div>
-          <p class="status" id="massivasStatus" role="status" aria-live="polite">Passo 1 de 3</p>
+          <p class="status" id="massivasStatus" role="status" aria-live="polite">Passo 1 de 5</p>
           <button class="ghost-button" id="massivasHomeButton" type="button"><i data-lucide="house"></i> Início</button>
         </nav>
 
@@ -191,9 +191,11 @@
             <div class="massivas-progress" aria-label="Progresso do fluxo massivas">
               <div class="progress-track"><span id="massivasProgressFill"></span></div>
               <div class="massivas-step-nav">
-                <button type="button" class="massivas-step-nav-item is-active" data-massivas-step-nav="1">1 <span>Entrada</span></button>
-                <button type="button" class="massivas-step-nav-item" data-massivas-step-nav="2">2 <span>Resumo</span></button>
-                <button type="button" class="massivas-step-nav-item" data-massivas-step-nav="3">3 <span>Finalizar</span></button>
+                <button type="button" class="massivas-step-nav-item is-active" data-massivas-step-nav="1">1 <span>Intro</span></button>
+                <button type="button" class="massivas-step-nav-item" data-massivas-step-nav="2">2 <span>Chamado</span></button>
+                <button type="button" class="massivas-step-nav-item" data-massivas-step-nav="3">3 <span>Alpha/Teste</span></button>
+                <button type="button" class="massivas-step-nav-item" data-massivas-step-nav="4">4 <span>Resultado</span></button>
+                <button type="button" class="massivas-step-nav-item" data-massivas-step-nav="5">5 <span>Finalizar</span></button>
               </div>
             </div>
 
@@ -201,22 +203,26 @@
               <div class="step-heading">
                 <span class="step-count">1</span>
                 <div>
-                  <p class="eyebrow">Hosts</p>
-                  <h2><i data-lucide="server"></i> Informar hosts da massiva</h2>
+                  <p class="eyebrow">Início</p>
+                  <h2><i data-lucide="layers-3"></i> Preparar massiva</h2>
                 </div>
               </div>
-              <label class="field wide">
-                <span>Hosts da massiva</span>
-                <textarea id="massivasHosts" rows="10" placeholder="Cole um host por linha"></textarea>
-              </label>
-              <label class="field wide">
-                <span>Debug - alarmes manuais</span>
-                <textarea id="massivasDebugAlarms" rows="8" placeholder="Cole aqui os alarmes retornados pelo Zabbix para testar a análise sem consultar a API"></textarea>
-              </label>
-              <p class="massivas-copy">Ao confirmar, a ferramenta consulta o Zabbix em modo somente leitura e preenche as informações do passo 2.</p>
+              <div class="massivas-intro-panel">
+                <div class="massivas-intro-item">
+                  <i data-lucide="badge-check"></i>
+                  <span>Gerar reconhecimento e atualização do chamado da massiva.</span>
+                </div>
+                <div class="massivas-intro-item">
+                  <i data-lucide="scan-search"></i>
+                  <span>Consultar ou testar alarmes para montar uma análise técnica ALPHA/TESTES.</span>
+                </div>
+                <div class="massivas-intro-item">
+                  <i data-lucide="clipboard-list"></i>
+                  <span>Revisar o resultado antes de anexar as evidências no chamado.</span>
+                </div>
+              </div>
               <div class="massivas-actions">
-                <button class="primary-button" id="massivasConfirmStep1" type="button"><i data-lucide="check"></i> Consultar Zabbix e avançar</button>
-                <button class="ghost-button" id="massivasDebugButton" type="button"><i data-lucide="bug"></i> Testar análise manual</button>
+                <button class="primary-button massivas-start-button" id="massivasStartFlowButton" type="button"><i data-lucide="play"></i> Começar fluxo de massiva</button>
               </div>
             </article>
 
@@ -224,24 +230,96 @@
               <div class="step-heading">
                 <span class="step-count">2</span>
                 <div>
-                  <p class="eyebrow">Informações</p>
-                  <h2><i data-lucide="scan-search"></i> Revisar a massiva consultada</h2>
+                  <p class="eyebrow">Chamado</p>
+                  <h2><i data-lucide="badge-check"></i> Preparar textos da massiva</h2>
                 </div>
               </div>
-              <label class="field wide">
-                <span>Informações do passo 2</span>
-                <textarea id="massivasSummary" rows="10" readonly></textarea>
-              </label>
-              <p class="massivas-copy">O texto começa com ### ATUALIZAÇÃO DA MASSIVA ### e já traz análise, previsão e próxima ação.</p>
+              <div class="massivas-subject-block">
+                <label class="field">
+                  <span>Assunto Bdesk da massiva</span>
+                  <textarea id="massivasBdeskSubject" rows="2" placeholder="Cole o assunto Bdesk completo para gerar o reconhecimento com Aut Bdesk:#"></textarea>
+                </label>
+                <button class="copy-action compact-copy-action" type="button" data-copy-kind="massivas-recognize" data-preview-kind="massivas-recognize"><i data-lucide="badge-check"></i> Reconhecer alarmes da massiva</button>
+              </div>
+              <div class="field-row two">
+                <label class="field">
+                  <span>Telefone/Grupo</span>
+                  <input id="massivasUpdatePhoneGroup" type="text" placeholder="Telefone, grupo ou canal acionado">
+                </label>
+                <label class="field">
+                  <span>Chamado TX / INFRA</span>
+                  <input id="massivasUpdateTxInfraTicket" type="text" placeholder="Chamado ou protocolo da área acionada">
+                </label>
+              </div>
+              <div class="field-row three">
+                <label class="field">
+                  <span>Falado com</span>
+                  <input id="massivasUpdateSpokenWith" type="text" placeholder="NOC / TX / Parceiro">
+                </label>
+                <label class="field">
+                  <span>Previsão</span>
+                  <input id="massivasUpdateForecast" type="text" value="Sem previsão">
+                </label>
+                <label class="field">
+                  <span>Próxima ação</span>
+                  <input id="massivasUpdateNextAction" type="text" placeholder="Aguardar retorno e atualizar chamado">
+                </label>
+              </div>
+              <div class="auto-button-grid is-conditional">
+                <button class="copy-action compact-copy-action" type="button" data-copy-kind="massivas-update" data-preview-kind="massivas-update"><i data-lucide="clipboard-list"></i> Atualização massiva</button>
+              </div>
               <div class="massivas-actions">
                 <button class="ghost-button massivas-prev" type="button"><i data-lucide="arrow-left"></i> Voltar</button>
-                <button class="primary-button massivas-next" type="button"><i data-lucide="arrow-right"></i> Próximo passo</button>
+                <button class="primary-button massivas-next" type="button"><i data-lucide="arrow-right"></i> Ir para Alpha/Testes</button>
               </div>
             </article>
 
             <article class="massivas-step" data-massivas-step="3">
               <div class="step-heading">
                 <span class="step-count">3</span>
+                <div>
+                  <p class="eyebrow">ALPHA/TESTES</p>
+                  <h2><i data-lucide="server"></i> Colar hosts, alarmes e debug</h2>
+                </div>
+              </div>
+              <label class="field wide">
+                <span>Hosts da massiva</span>
+                <textarea id="massivasHosts" rows="8" placeholder="Cole um host por linha"></textarea>
+              </label>
+              <label class="field wide">
+                <span>Alarmes / debug manual</span>
+                <textarea id="massivasDebugAlarms" rows="8" placeholder="Cole aqui os alarmes retornados pelo Zabbix para testar a análise sem consultar a API"></textarea>
+              </label>
+              <p class="massivas-copy">Ao consultar, a ferramenta busca o Zabbix em modo somente leitura. Se houver alarmes colados, usa o debug manual.</p>
+              <div class="massivas-actions">
+                <button class="ghost-button massivas-prev" type="button"><i data-lucide="arrow-left"></i> Voltar</button>
+                <button class="primary-button" id="massivasConfirmStep1" type="button"><i data-lucide="check"></i> Consultar Zabbix e avançar</button>
+                <button class="ghost-button" id="massivasDebugButton" type="button"><i data-lucide="bug"></i> Testar análise manual</button>
+              </div>
+            </article>
+
+            <article class="massivas-step" data-massivas-step="4">
+              <div class="step-heading">
+                <span class="step-count">4</span>
+                <div>
+                  <p class="eyebrow">Resultado ALPHA/TESTES</p>
+                  <h2><i data-lucide="scan-search"></i> Revisar análise gerada</h2>
+                </div>
+              </div>
+              <label class="field wide">
+                <span>Análise da massiva - ALPHA/TESTES</span>
+                <textarea id="massivasSummary" rows="10" readonly></textarea>
+              </label>
+              <p class="massivas-copy">O texto começa com ### ANÁLISE DA MASSIVA ### e já traz conclusão, direcionamento e evidências.</p>
+              <div class="massivas-actions">
+                <button class="ghost-button massivas-prev" type="button"><i data-lucide="arrow-left"></i> Voltar</button>
+                <button class="primary-button massivas-next" type="button"><i data-lucide="arrow-right"></i> Próximo passo</button>
+              </div>
+            </article>
+
+            <article class="massivas-step" data-massivas-step="5">
+              <div class="step-heading">
+                <span class="step-count">5</span>
                 <div>
                   <p class="eyebrow">Finalização</p>
                   <h2><i data-lucide="rotate-ccw"></i> Concluir e reiniciar o fluxo</h2>
@@ -263,7 +341,7 @@
             <span class="brand-mark" aria-hidden="true"><i data-lucide="radio-tower"></i></span>
             <div>
               <p class="eyebrow">Developed by Alexsander</p>
-              <h1>NOC TOOL</h1>
+              <h1>NOC IP TOOL</h1>
             </div>
           </div>
 
@@ -523,6 +601,10 @@
         <label class="toggle-field">
           <input id="paramUseEmojis" type="checkbox" checked>
           <span>Usar emojis nos textos operacionais</span>
+        </label>
+        <label class="toggle-field">
+          <input id="paramDarkTheme" type="checkbox">
+          <span>Tema escuro</span>
         </label>
         <div class="parameters-actions">
           <button class="ghost-button" id="cancelParametersButton" type="button">Cancelar</button>
