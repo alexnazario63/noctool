@@ -82,8 +82,10 @@ const partnerContacts = {
   TIWS: {
     display: "Tiws",
   },
-  "ANGOLA TELECOM": {
-    display: "Angola Telecom",
+  "ANGOLA": {
+    display: "Angola Cables",
+    recipients:
+"noc@angolacables.co.ao",
   },
   CIRION: {
     display: "CIRION",
