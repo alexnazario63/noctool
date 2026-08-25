@@ -82,10 +82,8 @@ const partnerContacts = {
   TIWS: {
     display: "Tiws",
   },
-  "ANGOLA": {
-    display: "Angola Cables",
-    recipients:
-"noc@angolacables.co.ao",
+  "ANGOLA TELECOM": {
+    display: "Angola Telecom",
   },
   CIRION: {
     display: "CIRION",
@@ -271,13 +269,17 @@ document.addEventListener("DOMContentLoaded", () => {
     "massivasStatus",
     "massivasHosts",
     "massivasBdeskSubject",
+    "massivasOpeningOutput",
     "massivasUpdatePhoneGroup",
     "massivasUpdateTxInfraTicket",
     "massivasUpdateSpokenWith",
+    "massivasUpdateSpokenText",
     "massivasUpdateForecast",
     "massivasUpdateNextAction",
     "massivasDebugAlarms",
     "massivasSummary",
+    "massivasTopologyGraph",
+    "massivasTopologyCanvas",
     "massivasProgressFill",
     "parametersDialog",
     "paramContact",
@@ -318,7 +320,6 @@ function bindEvents() {
   document.getElementById("manualHomeButton").addEventListener("click", returnToLaunch);
   document.getElementById("manualAutoButton").addEventListener("click", () => startMode("auto"));
   document.getElementById("massivasHomeButton").addEventListener("click", returnToLaunch);
-  document.getElementById("massivasStartFlowButton").addEventListener("click", () => showMassivasStep(2));
   document.getElementById("autoFinishButton").addEventListener("click", restartAutoFlow);
   document.getElementById("massivasFinishButton").addEventListener("click", restartMassivasFlow);
   document.getElementById("autoConfirmStep1").addEventListener("click", confirmAutoStepOne);
@@ -386,12 +387,7 @@ function bindEvents() {
     setValue("massivasSummary", buildMassivasSummaryFallback());
   });
 
-  fields.massivasDebugAlarms.addEventListener("input", () => {
-    if (getValue("massivasDebugAlarms")) {
-      const hosts = splitLines(getValue("massivasHosts")).map(h => h.trim().toUpperCase());
-      setValue("massivasSummary", buildMassivasAnalysis(hosts, getValue("massivasDebugAlarms")));
-    }
-  });
+  fields.massivasDebugAlarms.addEventListener("input", debounce(updateMassivasAlarmOrganization, 120));
 
     fields.events.addEventListener("input", debounce(() => {
     if (getValue("events")) {
@@ -605,13 +601,99 @@ function confirmAutoStepOne() {
 function resetMassivasFlowFields() {
   setValue("massivasHosts", "");
   setValue("massivasBdeskSubject", "");
+  setValue("massivasOpeningOutput", "");
   setValue("massivasUpdatePhoneGroup", "");
   setValue("massivasUpdateTxInfraTicket", "");
   setValue("massivasUpdateSpokenWith", "");
+  setValue("massivasUpdateSpokenText", "");
   setValue("massivasUpdateForecast", "Sem previsão");
   setValue("massivasUpdateNextAction", "");
   setValue("massivasDebugAlarms", "");
   setValue("massivasSummary", "");
+}
+
+function updateMassivasAlarmOrganization() {
+  const alarmsText = getValue("massivasDebugAlarms");
+  const hosts = uniqueValues(splitMassivasAlarmLines(alarmsText).map((line) => extractMassivaAffectedHost(parseMassivaAlarmLine(line))).filter(Boolean));
+
+  setValue("massivasHosts", hosts.join("\n"));
+  setValue("massivasOpeningOutput", buildMassivasOpening(alarmsText, hosts));
+  setValue("massivasSummary", buildMassivasSummaryFallback());
+  renderMassivasTopology(alarmsText);
+}
+
+function buildMassivasOpening(alarmsText, hosts) {
+  const records = splitMassivasAlarmLines(alarmsText)
+    .map((line) => line.replace(/^[-*]\s*/, "").trim())
+    .filter(Boolean)
+    .map(parseMassivaAlarmLine);
+  const validRecords = records.filter((record) => record.raw);
+  const problemRecords = validRecords.filter((record) => /\bPROBLEM\b/i.test(record.raw));
+  const resolvedRecords = validRecords.filter((record) => /\bRESOLVED\b/i.test(record.raw));
+  const affectedHosts = uniqueValues([
+    ...hosts,
+    ...validRecords.map(extractMassivaAffectedHost),
+  ]);
+  const startTimes = validRecords.map((record) => record.time).filter(Boolean).sort();
+  const evidenceLines = validRecords.map(formatMassivasOpeningLine);
+  const groups = groupAlarmLinesByHost(evidenceLines);
+  const groupedEvidence = groups.map((group, index) => [
+    `${withEmoji("🖥️", `HOST ${index + 1}`)}:`,
+    ...group.lines,
+  ].join("\n")).join("\n\n");
+  const linkDownRecords = validRecords.filter((record) => /link\s*down|interface.*down|operational.*down/i.test(record.raw));
+  const restartRecords = validRecords.filter((record) => /reinici|reboot|restart|uptime|started|cold start|warm start/i.test(record.raw));
+  const triggerGroups = countBy(validRecords.map((record) => record.interfaceData.trigger).filter(Boolean));
+  const deliveryGroups = countBy(validRecords.map((record) => record.interfaceData.deliveryType).filter(Boolean));
+  const operatorGroups = countBy(validRecords.map((record) => record.interfaceData.operator).filter(Boolean));
+  const causeGroups = classifyMassivasCauses(validRecords);
+  const domains = inferMassivasDomains(deliveryGroups, triggerGroups);
+  const topologyText = summarizeMassivasTopology(validRecords);
+  const approachKeys = uniqueValues(linkDownRecords.map((record) => record.localInterface || record.interfaceData.remotePort));
+  const multipleApproaches = linkDownRecords.length >= 2 && (affectedHosts.length >= 2 || approachKeys.length >= 2);
+  const incidentGroups = countBy(validRecords.map((record) => [record.hosts[0], record.interfaceData.trigger, record.interfaceData.deliveryType].filter(Boolean).join("|")));
+  const multipleIncidents = validRecords.length > 1 && (affectedHosts.length > 1 || Object.keys(incidentGroups).length > 1 || multipleApproaches);
+  const simultaneous = hasSimultaneousImpact(validRecords);
+  const repeatedRestart = restartRecords.some((record) => recordsForHost(restartRecords, record.hosts[0]).length >= 2);
+  const diagnosis = buildMassivasConclusion({
+    affectedHosts,
+    validRecords,
+    linkDownRecords,
+    restartRecords,
+    triggerGroups,
+    deliveryGroups,
+    operatorGroups,
+    statusGroups: countBy(validRecords.map((record) => record.status).filter(Boolean)),
+    causeGroups,
+    domains,
+    topologyText,
+    multipleIncidents,
+    multipleApproaches,
+    simultaneous,
+    repeatedRestart,
+  });
+  const symptom = problemRecords.length
+    ? affectedHosts.length > 1 || validRecords.length > 1 ? "INDISPONIBILIDADE - MÚLTIPLAS AFETAÇÕES" : "INDISPONIBILIDADE"
+    : "INDISPONIBILIDADE NORMALIZADA";
+  return [
+    `### ${withEmoji("⚡", "ABERTURA DE MASSIVA")} ###`,
+    "",
+    `${withEmoji("🚨", "FALHA REPORTADA")}: ${symptom};`,
+    `${withEmoji("🧭", "DIAGNÓSTICO")}:`,
+    `${diagnosis};`,
+    `${withEmoji("🛠️", "AÇÃO TOMADA")}: Alarmes registrados e afetações organizadas por host;`,
+    groupedEvidence || "Nenhuma evidência válida identificada.",
+  ].join("\n");
+}
+
+function formatMassivasOpeningLine(record) {
+  const line = record.raw.replace(/\[([^\]]+)\]\([^\)]+\)/g, "$1");
+  const rtdIndex = line.search(/\b(?:RTD|SW)\s*\|/i);
+  const normalizedLine = rtdIndex < 0 ? line : line.slice(rtdIndex);
+  const trimmedLine = normalizedLine.replace(/(link\s+(?:down|up))\b.*$/i, "$1").trim();
+  if (rtdIndex < 0) return trimmedLine;
+
+  return `${record.time || ""}${trimmedLine}`.trim();
 }
 
 async function confirmMassivasStepOne() {
@@ -633,7 +715,7 @@ async function confirmMassivasStepOne() {
       btn.textContent = btn.dataset.originalText || "Avançar";
       btn.disabled = false;
     }
-    showMassivasStep(4);
+    showMassivasStep(3);
   }
 }
 
@@ -668,19 +750,20 @@ function buildMassivasRecognize() {
 }
 
 function buildMassivasManualUpdate() {
-  const optionalLines = [];
+  const contactLines = [];
   if (getValue("massivasUpdatePhoneGroup")) {
-    optionalLines.push(`${withEmoji("☎️", "TELEFONE/GRUPO")}: ${getValue("massivasUpdatePhoneGroup")};`);
+    contactLines.push(`${withEmoji("☎️", "TELEFONE/GRUPO")}: ${getValue("massivasUpdatePhoneGroup")};`);
   }
+  contactLines.push(`${withEmoji("💬", "O QUE FOI FALADO")}: ${getValue("massivasUpdateSpokenText")};`);
   if (getValue("massivasUpdateTxInfraTicket")) {
-    optionalLines.push(`${withEmoji("🎫", "CHAMADO TX / INFRA")}: ${getValue("massivasUpdateTxInfraTicket")};`);
+    contactLines.push(`${withEmoji("🎫", "CHAMADO TX / INFRA")}: ${getValue("massivasUpdateTxInfraTicket")};`);
   }
 
   return [
     `### ${withEmoji("🚨", "ATUALIZAÇÃO DA MASSIVA")} ###`,
     "",
     `${withEmoji("👤", "FALADO COM")}: ${getValue("massivasUpdateSpokenWith")};`,
-    ...optionalLines,
+    ...contactLines,
     `${withEmoji("⏳", "PREVISÃO")}: ${getValue("massivasUpdateForecast") || "Sem previsão"};`,
     `${withEmoji("➡️", "PRÓXIMA AÇÃO")}: ${getValue("massivasUpdateNextAction")};`,
   ].join("\n");
@@ -698,7 +781,7 @@ function runMassivasDebugAnalysis() {
 
   setValue("massivasSummary", buildMassivasAnalysis(hosts, debugAlarms));
   setStatus("Análise manual de massiva gerada.");
-  showMassivasStep(4);
+  showMassivasStep(3);
 }
 
 async function fetchZabbixAlarms(hosts) {
@@ -756,6 +839,8 @@ const interfaceTypeCatalog = {
   ULK: "Único link",
   ATK: "Aggregation trunk",
   ITK: "Interface do aggregation trunk",
+  AETK: "Aggregation Ethernet trunk",
+  IETK: "Interface do aggregation Ethernet trunk",
 };
 
 const deliveryTypeCatalog = {
@@ -767,23 +852,31 @@ const deliveryTypeCatalog = {
   SWC: "Swap capacidade",
   SWF: "Swap fibra",
   MG: "Gerência de equipamentos",
+  MGT: "Gerência de equipamentos",
 };
 
 function buildMassivasAnalysis(hosts, alarmsText) {
-  const evidenceLines = splitLines(alarmsText).map((line) => line.replace(/^-\s*/, ""));
+  const evidenceLines = splitMassivasAlarmLines(alarmsText).map((line) => line.replace(/^-\s*/, ""));
   const records = evidenceLines.map(parseMassivaAlarmLine);
   const validRecords = records.filter((record) => record.raw && !record.raw.startsWith("Nenhum ") && !record.raw.startsWith("Informe "));
   const affectedHosts = uniqueValues([
-    ...hosts.map(normalizeHost).filter(Boolean),
-    ...validRecords.flatMap((record) => record.hosts),
+    ...hosts.map((host) => String(host || "").trim().toUpperCase()).filter(Boolean),
+    ...validRecords.map(extractMassivaAffectedHost),
   ]);
   const linkDownRecords = validRecords.filter((record) => /link\s*down|interface.*down|operational.*down/i.test(record.raw));
   const restartRecords = validRecords.filter((record) => /reinici|reboot|restart|uptime|started|cold start|warm start/i.test(record.raw));
   const triggerGroups = countBy(validRecords.map((record) => record.interfaceData.trigger).filter(Boolean));
   const deliveryGroups = countBy(validRecords.map((record) => record.interfaceData.deliveryType).filter(Boolean));
   const operatorGroups = countBy(validRecords.map((record) => record.interfaceData.operator).filter(Boolean));
+  const statusGroups = countBy(validRecords.map((record) => record.status).filter(Boolean));
+  const causeGroups = classifyMassivasCauses(validRecords);
+  const domains = inferMassivasDomains(deliveryGroups, triggerGroups);
+  const topologyText = summarizeMassivasTopology(validRecords);
+  const incidentGroups = countBy(validRecords.map((record) => [record.hosts[0], record.interfaceData.trigger, record.interfaceData.deliveryType].filter(Boolean).join("|")));
   const simultaneous = hasSimultaneousImpact(validRecords);
-  const multipleApproaches = linkDownRecords.length >= 2 && affectedHosts.length >= 2;
+  const approachKeys = uniqueValues(linkDownRecords.map((record) => record.localInterface || record.interfaceData.remotePort));
+  const multipleApproaches = linkDownRecords.length >= 2 && (affectedHosts.length >= 2 || approachKeys.length >= 2);
+  const multipleIncidents = validRecords.length > 1 && (affectedHosts.length > 1 || Object.keys(incidentGroups).length > 1 || multipleApproaches);
   const repeatedRestart = restartRecords.some((record) => recordsForHost(restartRecords, record.hosts[0]).length >= 2);
 
   const conclusion = buildMassivasConclusion({
@@ -794,11 +887,16 @@ function buildMassivasAnalysis(hosts, alarmsText) {
     triggerGroups,
     deliveryGroups,
     operatorGroups,
+    statusGroups,
+    causeGroups,
+    domains,
+    topologyText,
+    multipleIncidents,
     multipleApproaches,
     simultaneous,
     repeatedRestart,
   });
-  const actions = suggestMassivasActions({ validRecords, linkDownRecords, restartRecords, operatorGroups, multipleApproaches, simultaneous, repeatedRestart });
+  const actions = suggestMassivasActions({ validRecords, linkDownRecords, restartRecords, operatorGroups, deliveryGroups, causeGroups, domains, multipleApproaches, simultaneous, repeatedRestart, multipleIncidents });
 
   return [
     `### ${withEmoji("🚨", "ANÁLISE DA MASSIVA - ALPHA/TESTES")} ###`,
@@ -820,6 +918,11 @@ function buildMassivasConclusion(context) {
     triggerGroups,
     deliveryGroups,
     operatorGroups,
+    statusGroups,
+    causeGroups,
+    domains,
+    topologyText,
+    multipleIncidents,
     multipleApproaches,
     simultaneous,
     repeatedRestart,
@@ -829,73 +932,262 @@ function buildMassivasConclusion(context) {
     return "Sem alarmes ativos retornados para os hosts informados. Validar se os hostnames foram colados conforme cadastro do Zabbix ou se a falha já normalizou antes da consulta.";
   }
 
-  const hostText = affectedHosts.length ? `Host(s) envolvido(s): ${affectedHosts.join(", ")}.` : "Nenhum hostname no padrão BR-UF-CNL-POP-FUNÇÃO-NN foi identificado nos alarmes.";
+  const hostText = affectedHosts.length ? `Hosts afetados: ${affectedHosts.join(", ")}.` : "Nenhum hostname no padrão BR-UF-CNL-POP-FUNÇÃO-NN foi identificado nos alarmes.";
   const mainHost = affectedHosts[0] || "host afetado";
   const triggerText = summarizeGroups(triggerGroups, triggerCatalog, "gatilho");
   const deliveryText = summarizeGroups(deliveryGroups, deliveryTypeCatalog, "entrega");
-  const operatorText = summarizeOperators(operatorGroups);
+  const statusText = summarizeMassivasStatuses(statusGroups);
+  const causeText = summarizeCauseGroups(causeGroups);
   const interfaceText = summarizeInterfaces(validRecords);
   const firstTime = validRecords.map((record) => record.time).filter(Boolean).sort()[0] || "";
   const timeText = firstTime ? ` Início mais antigo identificado: ${firstTime}.` : "";
-  const technicalContext = [triggerText, deliveryText, operatorText, interfaceText].filter(Boolean).join(" ");
+  const domainText = domains.length ? `Domínios identificados: ${domains.join("; ")}.` : "";
+  const technicalContext = [triggerText, deliveryText, domainText, statusText, causeText].filter(Boolean);
 
   if (repeatedRestart) {
-    return `${hostText}${timeText} Identificado padrão de reinicialização recorrente em ${mainHost}, indicando maior probabilidade de instabilidade local do equipamento, energia, hardware ou software. ${technicalContext}`.trim();
+    return formatMassivasDiagnosis(hostText, timeText, `Identificado padrão de reinicialização recorrente no host ${mainHost}. Possíveis causas: instabilidade local, energia, hardware ou software.`, technicalContext);
   }
 
-  if (multipleApproaches && simultaneous) {
-    return `${hostText}${timeText} As evidências indicam queda simultânea de abordagens distintas em hosts relacionados, cenário compatível com isolamento de site/equipamento por perda de caminhos de transporte. ${technicalContext}`.trim();
+  if (multipleIncidents && simultaneous) {
+    const approachText = linkDownRecords.length === 2 ? "duas abordagens/interfaces" : `${linkDownRecords.length} abordagens/interfaces`;
+    const impactText = affectedHosts.length === 1 ? ` no host afetado ${mainHost}` : ` em ${affectedHosts.length} hosts afetados`;
+    return formatMassivasDiagnosis(hostText, timeText, `Identificadas ${approachText} em queda${impactText}, com eventos no mesmo intervalo. O cenário pode representar isolamento de site/equipamento ou incidentes independentes; não concluir causa única sem validar a topologia.`, technicalContext);
   }
 
-  if (multipleApproaches) {
-    return `${hostText}${timeText} Foram identificadas múltiplas interfaces/transportes em falha envolvendo mais de um host. O cenário sugere degradação ou isolamento parcial, exigindo validação de topologia antes de tratar como falha isolada de porta. ${technicalContext}`.trim();
+  if (multipleIncidents || multipleApproaches) {
+    const approachText = linkDownRecords.length === 2 ? "duas abordagens/interfaces" : `${linkDownRecords.length} abordagens/interfaces`;
+    const impactText = affectedHosts.length === 1
+      ? ` no host afetado ${mainHost}`
+      : ` em ${affectedHosts.length} hosts afetados`;
+    return formatMassivasDiagnosis(hostText, timeText, `Identificadas ${approachText} em queda${impactText}. O cenário sugere múltiplas afetações, degradação ou isolamento parcial; validar a correlação temporal e a topologia antes de definir uma causa única.`, technicalContext);
   }
 
   if (linkDownRecords.length) {
     const record = linkDownRecords[0];
     const side = record.localInterface ? `na interface local ${record.localInterface}` : "em interface monitorada";
     const remote = record.interfaceData.remotePort ? ` com referência à porta/interface remota ${record.interfaceData.remotePort}` : "";
-    return `${hostText}${timeText} Identificado link/interface down ${side}${remote}. A evidência aponta para falha provável no transporte/circuito, porta física ou equipamento vizinho associado. ${technicalContext}`.trim();
+    return formatMassivasDiagnosis(hostText, timeText, `Identificado link/interface indisponível ${side}${remote}. A evidência aponta para falha provável no transporte/circuito, porta física ou equipamento vizinho associado.`, technicalContext);
   }
 
-  return `${hostText}${timeText} Os alarmes coletados não formam um padrão único de causa raiz. Priorizar correlação temporal, topologia dos hosts e validação das interfaces citadas nas evidências antes do acionamento definitivo. ${technicalContext}`.trim();
+  return formatMassivasDiagnosis(hostText, timeText, `Os alarmes representam ${validRecords.length > 1 ? "múltiplas afetações e/ou evidências" : "uma afetação"}. A causa raiz ainda não deve ser presumida. Priorizar correlação temporal, topologia dos hosts e validação das interfaces citadas antes do acionamento definitivo.`, technicalContext);
+}
+
+function formatMassivasDiagnosis(hostText, timeText, finding, technicalContext) {
+  return [
+    `• ${hostText}`,
+    timeText ? `• ${timeText.replace(/^\s+/, "")}` : "",
+    `• ${finding}`,
+    ...technicalContext.map((detail) => `• ${detail}`),
+  ].filter(Boolean).join("\n");
+}
+
+function summarizeMassivasStatuses(groups) {
+  const entries = Object.entries(groups);
+  if (!entries.length) return "";
+  return `Estados dos alarmes: ${entries.map(([status, count]) => `${status}; eventos: ${count}`).join(" | ")}.`;
+}
+
+function classifyMassivasCauses(records) {
+  const causes = [];
+  records.forEach((record) => {
+    const raw = record.raw.toLowerCase();
+    const recordCauses = [];
+    if (/energia|el[eé]tric|power|utility|blackout/.test(raw)) recordCauses.push("ENERGIA/ELETRICA");
+    if (/rompimento|rompida|fibra|fiber|corte/.test(raw)) recordCauses.push("FIBRA/ROMPIMENTO");
+    if (/reinici|reboot|restart|cold start|warm start|uptime/.test(raw)) recordCauses.push("EQUIPAMENTO/REINICIO");
+    if (/temperatura|hardware|fan|ventila|cpu|mem[oó]ria/.test(raw)) recordCauses.push("EQUIPAMENTO/HARDWARE");
+    if (!recordCauses.length || /link\s*down|interface.*down|operational.*down/.test(raw)) recordCauses.push("ENLACE/INTERFACE");
+    causes.push(...recordCauses);
+  });
+  return countBy(causes);
+}
+
+function summarizeCauseGroups(groups) {
+  const entries = Object.entries(groups);
+  if (!entries.length) return "";
+  return `Causas a investigar: ${entries.map(([cause, count]) => `${cause}; evidências: ${count}`).join(" | ")}.`;
+}
+
+function inferMassivasDomains(deliveryGroups, triggerGroups) {
+  const domains = [];
+  if (deliveryGroups.DWD) domains.push("TX/DWDM");
+  if (deliveryGroups.FIB) domains.push("TX/FIBRA");
+  if (deliveryGroups.CAP) domains.push("CAPACIDADE");
+  if (deliveryGroups.MGT || deliveryGroups.MG) domains.push("GERENCIA");
+  if (triggerGroups.IFLLGR) domains.push("REDE METRO/LOCAL");
+  if (triggerGroups.IFBBGR || triggerGroups.TPBBGR) domains.push("BACKBONE/TRANSPORTE");
+  if (Object.keys(triggerGroups).some((trigger) => /^(IFCCGR|IFIXGR|IFINGR|IFPGGR)$/.test(trigger))) domains.push("BORDA/PTT/PEERING");
+  if (Object.keys(triggerGroups).some((trigger) => /(?:CL|GV|PR)$/.test(trigger))) domains.push("B2B/CLIENTE");
+  return uniqueValues(domains);
+}
+
+function summarizeMassivasTopology(records) {
+  const links = records
+    .map((record) => ({
+      source: record.sourceHost || record.hosts[0] || "origem não identificada",
+      target: record.interfaceData.remoteEquipment || "equipamento B não identificado",
+      localInterface: record.localInterface,
+      remotePort: record.interfaceData.remotePort,
+    }))
+    .filter((link) => link.target !== "equipamento B não identificado");
+  if (!links.length) return "";
+
+  const grouped = {};
+  links.forEach((link) => {
+    if (!grouped[link.target]) grouped[link.target] = [];
+    grouped[link.target].push(link);
+  });
+
+  const paths = Object.entries(grouped).map(([target, targetLinks]) => {
+    const sources = uniqueValues(targetLinks.map((link) => link.source));
+    if (sources.length >= 2) {
+      return `Topologia: Ponta A (${sources[0]}) -> ${target} <- Ponta B (${sources[1]}).`;
+    }
+    const link = targetLinks[0];
+    const interfaceText = link.localInterface && link.remotePort
+      ? ` pelas interfaces ${link.localInterface} -> ${link.remotePort}`
+      : "";
+    return `Topologia: ${sources[0]} -> ${target}${interfaceText}.`;
+  });
+
+  return paths.join(" ");
+}
+
+function renderMassivasTopology(alarmsText) {
+  const records = splitMassivasAlarmLines(alarmsText).map(parseMassivaAlarmLine);
+  const graph = fields.massivasTopologyGraph;
+  if (!graph || !window.cytoscape) return;
+
+  if (graph._cy) graph._cy.destroy();
+  const links = records.map((record, index) => ({
+    source: record.sourceHost || record.hosts[0] || `origem-${index}`,
+    target: record.interfaceData.remoteEquipment || extractMassivaAffectedHost(record) || `equipamento-b-${index}`,
+    localInterface: record.localInterface || "interface",
+    remotePort: record.interfaceData.remotePort || "porta B",
+  }));
+  const nodes = uniqueValues(links.flatMap((link) => [link.source, link.target])).map((id) => ({
+    data: {
+      id,
+      label: id,
+      kind: links.some((link) => link.target === id) ? "equipment" : "source",
+    },
+  }));
+  const edges = links.map((link, index) => ({
+    data: { id: `link-${index}`, source: link.source, target: link.target, label: `${link.localInterface} -> ${link.remotePort}` },
+  }));
+
+  graph._cy = window.cytoscape({
+    container: graph,
+    elements: [...nodes, ...edges],
+    style: [
+      { selector: "node", style: { "background-color": "#1d6fa5", label: "data(label)", color: "#172b3a", "text-valign": "bottom", "text-margin-y": 8, "font-size": 12, "font-weight": 700, width: 34, height: 34 } },
+      { selector: "node[kind = 'equipment']", style: { "background-color": "#b56b2c", shape: "round-rectangle" } },
+      { selector: "edge", style: { width: 3, "line-color": "#8ca6bb", "target-arrow-color": "#49667d", "target-arrow-shape": "triangle", label: "data(label)", color: "#49667d", "font-size": 10, "text-background-color": "#f5f8fb", "text-background-opacity": 1, "curve-style": "bezier" } },
+    ],
+    layout: { name: "cose", animate: true, animationDuration: 350, fit: true, padding: 48 },
+  });
+}
+
+function drawMassivasTopology(context, records, top, width, height) {
+  const links = records.map((record) => ({
+    source: record.sourceHost || record.hosts[0] || "Origem não identificada",
+    target: record.interfaceData.remoteEquipment || extractMassivaAffectedHost(record) || "Equipamento B",
+    localInterface: record.localInterface || "interface",
+    remotePort: record.interfaceData.remotePort || "porta B",
+  }));
+  const sources = uniqueValues(links.map((link) => link.source));
+  const targets = uniqueValues(links.map((link) => link.target));
+  if (!links.length) {
+    context.fillStyle = "#6b7c8f";
+    context.font = "600 18px sans-serif";
+    context.fillText("Cole os alarmes para visualizar a topologia", 28, top + 52);
+    return;
+  }
+
+  const sourceX = Math.max(150, width * 0.18);
+  const targetX = width * 0.72;
+  const sourceGap = Math.min(92, (height - 70) / Math.max(sources.length, 1));
+  const targetGap = Math.min(92, (height - 70) / Math.max(targets.length, 1));
+  const sourceY = (index) => top + 48 + index * sourceGap;
+  const targetY = (index) => top + 48 + index * targetGap;
+
+  links.forEach((link, index) => {
+    const sourceIndex = sources.indexOf(link.source);
+    const targetIndex = targets.indexOf(link.target);
+    const fromY = sourceY(sourceIndex);
+    const toY = targetY(targetIndex);
+    context.strokeStyle = "#8ca6bb";
+    context.lineWidth = 3;
+    context.beginPath();
+    context.moveTo(sourceX + 126, fromY);
+    context.lineTo(targetX - 126, toY);
+    context.stroke();
+    context.fillStyle = "#49667d";
+    context.font = "600 14px sans-serif";
+    context.fillText(`${link.localInterface} -> ${link.remotePort}`, width * 0.39, (fromY + toY) / 2 - 5);
+  });
+
+  sources.forEach((source, index) => drawTopologyNode(context, source, sourceX, sourceY(index), "PONTA", "#1d6fa5"));
+  targets.forEach((target, index) => drawTopologyNode(context, target, targetX, targetY(index), "EQUIPAMENTO B", "#b56b2c"));
+}
+
+function drawTopologyNode(context, label, centerX, centerY, caption, color) {
+  const width = 252;
+  const height = 58;
+  context.fillStyle = color;
+  context.fillRect(centerX - width / 2, centerY - height / 2, width, height);
+  context.fillStyle = "#ffffff";
+  context.font = "700 12px sans-serif";
+  context.fillText(caption, centerX - width / 2 + 14, centerY - 12);
+  context.font = "600 14px sans-serif";
+  context.fillText(String(label).slice(0, 31), centerX - width / 2 + 14, centerY + 13);
 }
 
 function summarizeGroups(groups, catalog, fallbackLabel) {
   const entries = Object.entries(groups);
   if (!entries.length) return "";
-  return `${fallbackLabel[0].toUpperCase()}${fallbackLabel.slice(1)}(s): ${entries.map(([key, count]) => {
+  const label = fallbackLabel === "gatilho" ? "Tipos de gatilho" : "Tipos de entrega";
+  return `${label}: ${entries.map(([key, count]) => {
     const label = Array.isArray(catalog[key]) ? catalog[key][0] : catalog[key];
-    return `${key}${label ? ` (${label})` : ""}, ${count} ocorrência${count > 1 ? "s" : ""}`;
-  }).join("; ")}.`;
+    return `${key}${label ? ` (${label})` : ""}; ocorrências: ${count}`;
+  }).join(" | ")}.`;
 }
 
 function summarizeOperators(groups) {
   const entries = Object.entries(groups);
   if (!entries.length) return "";
-  return `Operadora(s)/responsável(is) extraído(s) da nomenclatura: ${entries.map(([key, count]) => `${key}, ${count} ocorrência${count > 1 ? "s" : ""}`).join("; ")}.`;
+  return `Operadoras/responsáveis identificados: ${entries.map(([key, count]) => `${key}; ocorrências: ${count}`).join(" | ")}.`;
 }
 
 function summarizeInterfaces(records) {
   const capacities = uniqueValues(records.map((record) => record.interfaceData.capacity).filter(Boolean));
   const interfaceTypes = uniqueValues(records.map((record) => record.interfaceData.interfaceType).filter(Boolean));
   const localInterfaces = uniqueValues(records.map((record) => record.localInterface).filter(Boolean));
+  const remoteEquipments = uniqueValues(records.map((record) => record.interfaceData.remoteEquipment).filter(Boolean));
+  const remotePorts = uniqueValues(records.map((record) => record.interfaceData.remotePort).filter(Boolean));
   const details = [];
   if (localInterfaces.length) details.push(`interfaces locais ${localInterfaces.slice(0, 4).join(", ")}`);
   if (capacities.length) details.push(`capacidade ${capacities.join(", ")}`);
   if (interfaceTypes.length) details.push(`tipo ${interfaceTypes.map((type) => `${type} (${interfaceTypeCatalog[type.replace(/\d+$/, "")] || "tipo não catalogado"})`).join(", ")}`);
+  if (remoteEquipments.length) details.push(`equipamentos B ${remoteEquipments.slice(0, 4).join(", ")}`);
+  if (remotePorts.length) details.push(`portas B ${remotePorts.slice(0, 4).join(", ")}`);
   return details.length ? `Dados técnicos: ${details.join("; ")}.` : "";
 }
 
 function parseMassivaAlarmLine(line) {
-  const hosts = uniqueValues(extractFullHosts(line).map(normalizeHost));
-  const parenthetical = line.match(/\(([^)]+)\)/);
+  const primaryHost = extractPrimaryLineHost(line);
+  const hosts = primaryHost ? [primaryHost] : [];
+  const parenthetical = line.match(/::\s*\(([^)]+)\)/);
   const interfaceDescription = parenthetical ? parenthetical[1] : "";
   const localInterface = extractLocalAlarmInterface(line);
 
   return {
     raw: line,
     time: extractRecordTime(line),
+    status: extractMassivasAlarmStatus(line),
+    eventId: extractMassivasEventId(line),
+    sourceHost: primaryHost,
+    affectedHost: primaryHost,
     hosts,
     localInterface,
     interfaceDescription,
@@ -903,35 +1195,92 @@ function parseMassivaAlarmLine(line) {
   };
 }
 
+function extractMassivaAffectedHost(record) {
+  const equipment = record.interfaceData.remoteEquipment;
+  const remoteHostPattern = /^BR[.-][A-Z]{5,6}[.-][A-Z0-9]{3,4}[.-][A-Z0-9]{2,3}[.-]\d{1,2}$/i;
+  if (/\bSW\s*\|/i.test(record.raw) && remoteHostPattern.test(equipment)) return equipment.toUpperCase();
+  return record.affectedHost || record.hosts[0] || "";
+}
+
+function splitMassivasAlarmLines(text) {
+  const sourceLines = splitLines(text).map((line) => line.trim()).filter(Boolean);
+  const alarmLines = [];
+
+  sourceLines.forEach((line) => {
+    const hasHost = extractFullHosts(line).length > 0;
+    const hasState = /\b(?:PROBLEM|RESOLVED|OK|UNKNOWN)\b/i.test(line);
+    const continuesPrevious = !hasHost && /link\s+(?:down|up)\b/i.test(line) && alarmLines.length;
+    if (continuesPrevious && !hasState) {
+      alarmLines[alarmLines.length - 1] += ` ${line}`;
+      return;
+    }
+    alarmLines.push(line);
+  });
+
+  return alarmLines;
+}
+
+function extractMassivasAlarmStatus(line) {
+  const match = String(line || "").match(/\b(PROBLEM|RESOLVED|OK|UNKNOWN)\b/i);
+  return match ? match[1].toUpperCase() : "";
+}
+
+function extractMassivasEventId(line) {
+  const match = String(line || "").match(/[?&]eventid=(\d+)/i);
+  return match ? match[1] : "";
+}
+
 function extractLocalAlarmInterface(line) {
   const hostPattern = /(?:BR[.-][A-Z]{2}[.-][A-Z0-9]{3,4}[.-][A-Z0-9]{3,4}[.-][A-Z0-9]{2,3}[.-]\d{1,2})/i;
-  const match = String(line || "").match(new RegExp(`${hostPattern.source}\\s+([^\\s]+)\\s*::`, "i"));
+  const match = String(line || "").match(new RegExp(`${hostPattern.source}\\s*(?:[↑↓→]\\s*)?([^\\s]+)\\s*::`, "i"));
   return match ? match[1].toUpperCase() : "";
 }
 
 function parseInterfaceDescription(value) {
-  const tokens = String(value || "")
+  const normalizedValue = String(value || "").toUpperCase();
+  const segments = normalizedValue
+    .split("_")
+    .map((segment) => segment.replace(/^DESCRIPTION\s*:/i, "").trim())
+    .filter(Boolean);
+  const trigger = normalizeMassivasTrigger(segments.find((segment) => triggerCatalog[segment] || segment === "FFBBGR") || "");
+  const interfaceType = normalizeMassivasInterfaceType(segments.find((segment) => /^(?:A|I)?(?:E)?(?:TK|KT)\d+$|^ULK\d*$/.test(segment)) || "");
+  const capacity = segments.find((segment) => /^\d+(?:M|G|T)(?:B)?$/.test(segment)) || inferCapacityFromText(value);
+  const deliveryType = inferDeliveryType(segments);
+  const deliveryIndex = deliveryType ? segments.findIndex((segment) => segment === deliveryType || (deliveryType === "DWD" && segment === "DWDM")) : -1;
+  const operatorSegment = deliveryIndex >= 0 ? segments[deliveryIndex + 1] || "" : "";
+  const operator = operatorSegment ? inferInterfaceOperator([operatorSegment], deliveryType) : inferInterfaceOperator(segments, deliveryType);
+  const remoteEquipmentIndex = capacity ? segments.findIndex((segment) => segment === capacity) + 1 : -1;
+  const remoteEquipment = remoteEquipmentIndex > 0 ? segments[remoteEquipmentIndex] || "" : "";
+  const remotePort = remoteEquipmentIndex > 0 ? segments[remoteEquipmentIndex + 1] || inferRemotePort(value, segments) : inferRemotePort(value, segments);
+  const tokens = normalizedValue
     .toUpperCase()
     .split(/[_.:\s]+/)
     .map((token) => token.trim())
     .filter(Boolean);
-  const trigger = tokens.find((token) => triggerCatalog[token]) || "";
-  const interfaceType = tokens.find((token) => /^U?LK$|^ATK\d*$|^ITK\d*$/.test(token)) || "";
-  const capacity = tokens.find((token) => /^\d+(?:M|G|T|GE|GIG|GB)$/.test(token)) || inferCapacityFromText(value);
-  const deliveryType = inferDeliveryType(tokens);
-  const operator = inferInterfaceOperator(tokens, deliveryType);
-  const remotePort = inferRemotePort(value, tokens);
-  const remoteEquipment = tokens.find((token) => token !== trigger && token !== operator && token.includes("-") && /[A-Z]{3,4}/.test(token)) || "";
+  const fallbackTrigger = normalizeMassivasTrigger(tokens.find((token) => triggerCatalog[token] || token === "FFBBGR") || "");
+  const fallbackInterfaceType = normalizeMassivasInterfaceType(tokens.find((token) => /^(?:A|I)?(?:E)?(?:TK|KT)\d+$|^ULK\d*$/.test(token)) || "");
+  const fallbackCapacity = tokens.find((token) => /^\d+(?:M|G|T|GE|GIG|GB)$/.test(token)) || "";
+  const fallbackDeliveryType = inferDeliveryType(tokens);
+  const fallbackOperator = inferInterfaceOperator(tokens, fallbackDeliveryType);
 
   return {
-    trigger,
-    interfaceType,
-    capacity,
-    deliveryType,
-    operator,
-    remoteEquipment,
-    remotePort,
+    trigger: trigger || fallbackTrigger,
+    interfaceType: interfaceType || fallbackInterfaceType,
+    capacity: capacity || fallbackCapacity,
+    deliveryType: deliveryType || fallbackDeliveryType,
+    operator: operator || fallbackOperator,
+    remoteEquipment: remoteEquipment || tokens.find((token) => token !== trigger && token !== operator && token.includes("-") && /[A-Z]{3,4}/.test(token)) || "",
+    remotePort: remotePort || inferRemotePort(value, tokens),
   };
+}
+
+function normalizeMassivasTrigger(value) {
+  return String(value || "").toUpperCase() === "FFBBGR" ? "IFBBGR" : String(value || "").toUpperCase();
+}
+
+function normalizeMassivasInterfaceType(value) {
+  const normalized = String(value || "").toUpperCase();
+  return normalized.startsWith("IKT") ? normalized.replace(/^IKT/, "ITK") : normalized;
 }
 
 function inferDeliveryType(tokens) {
@@ -943,6 +1292,9 @@ function inferDeliveryType(tokens) {
 function inferInterfaceOperator(tokens, deliveryType) {
   const knownOperator = tokens.find((token) => getPartnerContact(token) || carrierProfiles[token]);
   if (knownOperator) return normalizeInterfaceOperator(knownOperator);
+
+  const operatorVariant = tokens.find((token) => /^(CLARO|VIVO|TIM|OI)(?:[-_:]|$)/i.test(token));
+  if (operatorVariant) return operatorVariant.split(/[-_:]/)[0];
 
   const deliveryIndex = tokens.findIndex((token) => token === deliveryType || (deliveryType === "DWD" && token === "DWDM"));
   if (deliveryIndex < 0 || tokens.length - deliveryIndex > 4) return "";
@@ -961,7 +1313,7 @@ function isLikelyOperatorToken(token) {
   if (!token) return false;
   if (/^(CH\d+|PT\d+|PORTA|PORT|100G|40G|10G|\d+G|\d+M|\d+T)$/i.test(token)) return false;
   if (triggerCatalog[token] || deliveryTypeCatalog[token]) return false;
-  if (/^(ULK|ATK\d*|ITK\d*)$/i.test(token)) return false;
+  if (/^(ULK\d*|A?ETK\d*|A?TK\d*|I?ETK\d*|I?TK\d*)$/i.test(token)) return false;
   return /^[A-Z][A-Z0-9-]{2,}$/.test(token);
 }
 
@@ -981,18 +1333,21 @@ function suggestMassivasActions(context) {
   const actions = [];
   const operators = Object.keys(context.operatorGroups || {});
   const responsible = operators.length ? operators.join(", ") : "";
+  const domains = context.domains || [];
+  const causes = Object.keys(context.causeGroups || {});
 
-  if (context.repeatedRestart) {
+  if (context.repeatedRestart || causes.some((cause) => cause.startsWith("EQUIPAMENTO/")) || causes.includes("ENERGIA/ELETRICA")) {
     actions.push("Acionar Infra para validação local do equipamento, energia, hardware e logs de reboot.");
   }
 
-  if (context.multipleApproaches && context.simultaneous) {
-    actions.push(`Acionar Infra para validação de possível isolamento do host/site e acionar TX/Transporte para investigar as abordagens que caíram no mesmo intervalo${responsible ? `, envolvendo ${responsible}` : ""}.`);
-  } else if (context.linkDownRecords.length) {
-    actions.push(responsible
-      ? `Acionar TX/Transporte e o parceiro/operadora ${responsible} para validação do circuito, porta e equipamento vizinho indicados nas evidências.`
-      : "Acionar TX/Transporte para validação do circuito, porta e equipamento vizinho indicados nas evidências.");
+  if (domains.some((domain) => ["TX/DWDM", "TX/FIBRA", "BACKBONE/TRANSPORTE"].includes(domain))) {
+    actions.push("Acionar TX/Transporte para validar os enlaces, equipamentos B e portas B indicados nas descrições.");
   }
+  if (domains.includes("REDE METRO/LOCAL")) actions.push("Acionar a equipe de Rede Metro para validar a interligação local e a topologia do POP.");
+  if (domains.includes("CAPACIDADE")) actions.push("Acionar a equipe responsável pela capacidade para validar o circuito e a entrega monitorada.");
+  if (domains.includes("GERENCIA")) actions.push("Validar a gerência do equipamento, conectividade de gestão e disponibilidade do dispositivo.");
+  if (context.multipleApproaches && context.simultaneous) actions.push("Correlacionar os eventos no mesmo intervalo para confirmar se há isolamento de site ou múltiplos incidentes independentes.");
+  if (responsible) actions.push(`Validar também o trecho sob responsabilidade de ${responsible}, somente se confirmado pela topologia e pelo circuito.`);
 
   if (!actions.length) actions.push("Validar topologia, correlação temporal e novos alarmes antes de definir acionamento externo.");
   actions.push("Anexar as evidências abaixo no chamado e atualizar conforme retorno das áreas acionadas.");
@@ -1007,12 +1362,17 @@ function formatMassivasEvidence(records, fallbackLines) {
     const data = record.interfaceData;
     const details = [
       record.time ? `horário ${record.time}` : "",
+      record.status ? `estado ${record.status}` : "",
+      record.eventId ? `eventid ${record.eventId}` : "",
       record.hosts.length ? `hosts ${record.hosts.join(", ")}` : "",
       record.localInterface ? `interface local ${record.localInterface}` : "",
       data.trigger ? `trigger ${data.trigger}` : "",
+      data.interfaceType ? `tipo-ifce ${data.interfaceType}` : "",
+      data.capacity ? `capacidade ${data.capacity}` : "",
+      data.remoteEquipment ? `equipamento B ${data.remoteEquipment}` : "",
+      data.remotePort ? `porta B ${data.remotePort}` : "",
       data.deliveryType ? `entrega ${data.deliveryType}` : "",
       data.operator ? `operadora ${data.operator}` : "",
-      data.remotePort ? `porta/interface ${data.remotePort}` : "",
     ].filter(Boolean).join("; ");
 
     return `${index + 1}. ${details || "alarme sem campos estruturados"}\n   Evidência: ${record.raw}`;
@@ -1058,6 +1418,12 @@ function hasSimultaneousImpact(records) {
 }
 
 function timeToSeconds(value) {
+  const dateTime = String(value || "").match(/(20\d{2})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})/);
+  if (dateTime) return Date.UTC(Number(dateTime[1]), Number(dateTime[2]) - 1, Number(dateTime[3]), Number(dateTime[4]), Number(dateTime[5]), Number(dateTime[6]));
+
+  const brazilianDateTime = String(value || "").match(/(\d{2})\/(\d{2})\/(20\d{2}),?\s+(\d{2}):(\d{2}):(\d{2})/);
+  if (brazilianDateTime) return Date.UTC(Number(brazilianDateTime[3]), Number(brazilianDateTime[2]) - 1, Number(brazilianDateTime[1]), Number(brazilianDateTime[4]), Number(brazilianDateTime[5]), Number(brazilianDateTime[6]));
+
   const match = String(value || "").match(/(\d{2}):(\d{2}):(\d{2})/);
   if (!match) return null;
   return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]);
@@ -1084,7 +1450,7 @@ function currentMassivasStep() {
 }
 
 function showMassivasStep(step) {
-  const nextStep = Math.min(Math.max(step, 1), 5);
+  const nextStep = Math.min(Math.max(step, 1), 3);
   document.querySelectorAll(".massivas-step").forEach((item) => {
     const isActive = Number(item.dataset.massivasStep) === nextStep;
     item.classList.toggle("is-active", isActive);
@@ -1095,7 +1461,7 @@ function showMassivasStep(step) {
   });
 
   updateMassivasStepper(nextStep);
-  if (fields.massivasStatus) fields.massivasStatus.textContent = `Passo ${nextStep} de 5`;
+  if (fields.massivasStatus) fields.massivasStatus.textContent = `Passo ${nextStep} de 3`;
 }
 
 function updateMassivasStepper(step) {
@@ -2243,11 +2609,10 @@ function normalizeEventText(text) {
       return;
     }
 
-    if (isIgnorableAlarmLine(line)) {
-      return;
-    }
+    const cleanedLine = removeAlarmContextMarkers(line);
+    if (!cleanedLine || isIgnorableAlarmLine(cleanedLine)) return;
 
-    const value = pendingTimestamp ? `${pendingTimestamp}${line}` : line;
+    const value = pendingTimestamp ? `${pendingTimestamp}${cleanedLine}` : cleanedLine;
     normalized.push(value);
     pendingTimestamp = "";
   });
@@ -2256,7 +2621,14 @@ function normalizeEventText(text) {
 }
 
 function isIgnorableAlarmLine(line) {
-  return /^\d{6,}$/.test(line) || /^Aut\s+Bdesk:#/i.test(line) || /^✅️?/u.test(line);
+  return /^\d{6,}$/.test(line) || /^Aut\s+Bdesk:#/i.test(line) || /^[✅❌]\ufe0f?/u.test(line);
+}
+
+function removeAlarmContextMarkers(line) {
+  return String(line || "")
+    .replace(/[✅❌]\ufe0f?\s*[A-Z0-9]{2,5}(?:-[A-Z0-9]{2,5}){2,5}/gu, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
 
 function inferCarrier(text) {
@@ -2940,6 +3312,7 @@ function getRawGeneratedText(kind) {
     contact: fields.contactOutput.value,
     charge: fields.chargeOutput.value,
     complete: buildComplete(),
+    "massivas-opening": fields.massivasOpeningOutput.value,
     "massivas-recognize": buildMassivasRecognize(),
     "massivas-update": buildMassivasManualUpdate(),
   };
@@ -3010,6 +3383,7 @@ function getMissingFields(kind) {
     ],
     "massivas-update": [
       ["Falado com", () => getValue("massivasUpdateSpokenWith")],
+      ["O que foi falado", () => getValue("massivasUpdateSpokenText")],
       ["Previsão", () => getValue("massivasUpdateForecast")],
       ["Próxima ação", () => getValue("massivasUpdateNextAction")],
     ],
@@ -3064,6 +3438,11 @@ async function copyGenerated(kind) {
     return;
   }
 
+  if (kind === "massivas-opening") {
+    await copyMassivasOpeningImage(text);
+    return;
+  }
+
   try {
     await navigator.clipboard.writeText(text);
     setStatus("Texto copiado.");
@@ -3077,6 +3456,35 @@ async function copyGenerated(kind) {
     fallback.remove();
     setStatus("Texto copiado pela seleção.");
     showToast("Copiado pela seleção.");
+  }
+}
+
+async function copyMassivasOpeningImage(text) {
+  const records = splitMassivasAlarmLines(getValue("massivasDebugAlarms")).map(parseMassivaAlarmLine);
+  const canvas = document.createElement("canvas");
+  const width = 1400;
+  const padding = 56;
+  canvas.width = width;
+  canvas.height = 360;
+  const context = canvas.getContext("2d");
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = "#172b3a";
+  context.font = "700 20px sans-serif";
+  context.fillText("TOPOLOGIA DA MASSIVA", padding, 42);
+  drawMassivasTopology(context, records, 58, width, 280);
+
+  try {
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+    if (!blob || !navigator.clipboard?.write || !window.ClipboardItem) throw new Error("Clipboard de imagem indisponível");
+    const textBlob = new Blob([text], { type: "text/plain" });
+    await navigator.clipboard.write([new ClipboardItem({ "text/plain": textBlob, "image/png": blob })]);
+    setStatus("Abertura copiada como texto; topologia copiada como imagem.");
+    showToast("Abertura em texto e topologia em imagem copiadas.");
+  } catch (error) {
+    await navigator.clipboard.writeText(text);
+    setStatus("Abertura copiada como texto; imagem indisponível.");
+    showToast("Abertura copiada como texto. Não foi possível anexar a imagem.", "info");
   }
 }
 
