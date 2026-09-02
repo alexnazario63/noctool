@@ -1,4 +1,4 @@
-const DEFAULT_EMAIL_INTRO = "Estamos com transporte de capacidade indisponível, verificar com urgência.";
+﻿const DEFAULT_EMAIL_INTRO = "Estamos com transporte de capacidade indisponível, verificar com urgência.";
 const DEFAULT_OUTAGE_TEXT = "transporte de capacidade indisponível";
 
 // Integração Zabbix - Massivas
@@ -286,6 +286,17 @@ document.addEventListener("DOMContentLoaded", () => {
     "paramRequesterName",
     "paramUseEmojis",
     "paramDarkTheme",
+    "appTopProgressBar",
+    "appTopProgressFill",
+    "nocLoadingOverlay",
+    "nocLoadingText",
+    "nocErrorModal",
+    "nocErrorMessage",
+    "nocErrorDetails",
+    "nocErrorDetailsWrap",
+    "versionUpdateBanner",
+    "versionUpdateActionBtn",
+    "versionUpdateDismissBtn",
   ].forEach((id) => {
     fields[id] = document.getElementById(id);
   });
@@ -295,10 +306,41 @@ document.addEventListener("DOMContentLoaded", () => {
   applyCarrierDefaults(fields.carrier.value, true);
   bindEvents();
   initPreviewTooltips();
+  initVersionChecker();
+  initErrorHandling();
+  initButtonMicroInteractions();
   loadDescriptionData();
   renderOutput();
   renderIcons();
+  
+  // Listen for language changes
+  window.addEventListener("noc-lang-change", () => {
+    updateGreeting();
+    renderOutput();
+    updateStatusTranslations();
+  });
+  
+  // Update language buttons
+  updateLangButtons();
 });
+
+function updateLangButtons() {
+  document.querySelectorAll(".lang-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.lang === getLang());
+  });
+}
+
+function updateStatusTranslations() {
+  // Update status texts based on current language
+  if (fields.autoStatus) {
+    const autoStep = currentAutoStep();
+    fields.autoStatus.textContent = `${t("step")} ${autoStep} ${t("of")} 5`;
+  }
+  if (fields.massivasStatus) {
+    const massivasStep = currentMassivasStep();
+    fields.massivasStatus.textContent = `${t("step")} ${massivasStep} ${t("of")} 3`;
+  }
+}
 
 function renderIcons() {
   if (window.lucide) {
@@ -450,6 +492,7 @@ function initPreviewTooltips() {
 }
 
 function startMode(mode) {
+  showGlobalProgress(70, 200);
   document.body.classList.remove("app-not-started", "app-mode-auto", "app-mode-manual", "app-mode-massivas");
   document.body.classList.add(mode === "auto" ? "app-mode-auto" : mode === "massivas" ? "app-mode-massivas" : "app-mode-manual");
 
@@ -472,9 +515,11 @@ function startMode(mode) {
   }
 
   renderIcons();
+  hideGlobalProgress();
 }
 
 function returnToLaunch() {
+  showGlobalProgress(60, 180);
   document.body.classList.remove("app-mode-auto", "app-mode-manual", "app-mode-massivas");
   document.body.classList.add("app-not-started");
   fields.autoFlow.hidden = true;
@@ -483,32 +528,11 @@ function returnToLaunch() {
   showMassivasStep(1);
   animateLaunchIn();
   renderIcons();
-}
-
-function showMassivasDevelopmentPopup() {
-  const title = "Massivas em desenvolvimento";
-  const text = "Este fluxo ainda está em desenvolvimento.";
-
-  if (window.Swal) {
-    Swal.fire({
-      icon: "info",
-      title,
-      text,
-      confirmButtonText: "Entendi",
-      showClass: {
-        popup: "animate__animated animate__fadeInDown",
-      },
-      hideClass: {
-        popup: "animate__animated animate__fadeOutUp",
-      },
-    });
-    return;
-  }
-
-  window.alert(`${title}\n\n${text}`);
+  hideGlobalProgress();
 }
 
 function restartAutoFlow() {
+  showGlobalProgress(80, 200);
   document.body.classList.remove("app-not-started", "app-mode-manual", "app-mode-massivas");
   document.body.classList.add("app-mode-auto");
   fields.autoFlow.hidden = false;
@@ -519,9 +543,11 @@ function restartAutoFlow() {
   setStatus("Novo acionamento pronto.");
   animateAutoFlowIn();
   renderIcons();
+  hideGlobalProgress();
 }
 
 function restartMassivasFlow() {
+  showGlobalProgress(80, 200);
   document.body.classList.remove("app-not-started", "app-mode-manual", "app-mode-auto");
   document.body.classList.add("app-mode-massivas");
   fields.autoFlow.hidden = true;
@@ -531,6 +557,7 @@ function restartMassivasFlow() {
   setStatus("Nova massiva pronta.");
   animateMassivasFlowIn();
   renderIcons();
+  hideGlobalProgress();
 }
 
 function openParametersDialog() {
@@ -671,6 +698,7 @@ function buildMassivasOpening(alarmsText, hosts) {
     multipleApproaches,
     simultaneous,
     repeatedRestart,
+    includeTechnicalDetails: false,
   });
   const symptom = problemRecords.length
     ? affectedHosts.length > 1 || validRecords.length > 1 ? "INDISPONIBILIDADE - MÚLTIPLAS AFETAÇÕES" : "INDISPONIBILIDADE"
@@ -680,8 +708,7 @@ function buildMassivasOpening(alarmsText, hosts) {
     "",
     `${withEmoji("🚨", "FALHA REPORTADA")}: ${symptom};`,
     `${withEmoji("🧭", "DIAGNÓSTICO")}:`,
-    `${diagnosis};`,
-    `${withEmoji("🛠️", "AÇÃO TOMADA")}: Alarmes registrados e afetações organizadas por host;`,
+    `${diagnosis}`,
     groupedEvidence || "Nenhuma evidência válida identificada.",
   ].join("\n");
 }
@@ -693,7 +720,7 @@ function formatMassivasOpeningLine(record) {
   const trimmedLine = normalizedLine.replace(/(link\s+(?:down|up))\b.*$/i, "$1").trim();
   if (rtdIndex < 0) return trimmedLine;
 
-  return `${record.time || ""}${trimmedLine}`.trim();
+  return `${record.time ? `${record.time} ` : ""}${trimmedLine}`.trim();
 }
 
 async function confirmMassivasStepOne() {
@@ -750,23 +777,26 @@ function buildMassivasRecognize() {
 }
 
 function buildMassivasManualUpdate() {
-  const contactLines = [];
-  if (getValue("massivasUpdatePhoneGroup")) {
-    contactLines.push(`${withEmoji("☎️", "TELEFONE/GRUPO")}: ${getValue("massivasUpdatePhoneGroup")};`);
-  }
-  contactLines.push(`${withEmoji("💬", "O QUE FOI FALADO")}: ${getValue("massivasUpdateSpokenText")};`);
-  if (getValue("massivasUpdateTxInfraTicket")) {
-    contactLines.push(`${withEmoji("🎫", "CHAMADO TX / INFRA")}: ${getValue("massivasUpdateTxInfraTicket")};`);
-  }
-
-  return [
+  const lines = [
     `### ${withEmoji("🚨", "ATUALIZAÇÃO DA MASSIVA")} ###`,
     "",
-    `${withEmoji("👤", "FALADO COM")}: ${getValue("massivasUpdateSpokenWith")};`,
-    ...contactLines,
-    `${withEmoji("⏳", "PREVISÃO")}: ${getValue("massivasUpdateForecast") || "Sem previsão"};`,
-    `${withEmoji("➡️", "PRÓXIMA AÇÃO")}: ${getValue("massivasUpdateNextAction")};`,
-  ].join("\n");
+  ];
+
+  if (getValue("massivasUpdateTxInfraTicket")) {
+    lines.push(`${withEmoji("🎫", "CHAMADO TX / INFRA")}: ${getValue("massivasUpdateTxInfraTicket")};`);
+  }
+
+  lines.push(`${withEmoji("👤", "FALADO COM")}: ${getValue("massivasUpdateSpokenWith")};`);
+
+  if (getValue("massivasUpdatePhoneGroup")) {
+    lines.push(`${withEmoji("☎️", "TELEFONE/GRUPO")}: ${getValue("massivasUpdatePhoneGroup")};`);
+  }
+
+  lines.push(`${withEmoji("💬", "O QUE FOI FALADO")}: ${getValue("massivasUpdateSpokenText")};`);
+  lines.push(`${withEmoji("⏳", "PREVISÃO")}: ${getValue("massivasUpdateForecast") || "Sem previsão"};`);
+  lines.push(`${withEmoji("➡️", "PRÓXIMA AÇÃO")}: ${getValue("massivasUpdateNextAction")};`);
+
+  return lines.join("\n");
 }
 
 function runMassivasDebugAnalysis() {
@@ -895,6 +925,7 @@ function buildMassivasAnalysis(hosts, alarmsText) {
     multipleApproaches,
     simultaneous,
     repeatedRestart,
+    includeTechnicalDetails: true,
   });
   const actions = suggestMassivasActions({ validRecords, linkDownRecords, restartRecords, operatorGroups, deliveryGroups, causeGroups, domains, multipleApproaches, simultaneous, repeatedRestart, multipleIncidents });
 
@@ -926,6 +957,7 @@ function buildMassivasConclusion(context) {
     multipleApproaches,
     simultaneous,
     repeatedRestart,
+    includeTechnicalDetails = false,
   } = context;
 
   if (!validRecords.length) {
@@ -942,7 +974,7 @@ function buildMassivasConclusion(context) {
   const firstTime = validRecords.map((record) => record.time).filter(Boolean).sort()[0] || "";
   const timeText = firstTime ? ` Início mais antigo identificado: ${firstTime}.` : "";
   const domainText = domains.length ? `Domínios identificados: ${domains.join("; ")}.` : "";
-  const technicalContext = [triggerText, deliveryText, domainText, statusText, causeText].filter(Boolean);
+  const technicalContext = includeTechnicalDetails ? [triggerText, deliveryText, domainText, statusText, causeText].filter(Boolean) : [];
 
   if (repeatedRestart) {
     return formatMassivasDiagnosis(hostText, timeText, `Identificado padrão de reinicialização recorrente no host ${mainHost}. Possíveis causas: instabilidade local, energia, hardware ou software.`, technicalContext);
@@ -972,12 +1004,12 @@ function buildMassivasConclusion(context) {
   return formatMassivasDiagnosis(hostText, timeText, `Os alarmes representam ${validRecords.length > 1 ? "múltiplas afetações e/ou evidências" : "uma afetação"}. A causa raiz ainda não deve ser presumida. Priorizar correlação temporal, topologia dos hosts e validação das interfaces citadas antes do acionamento definitivo.`, technicalContext);
 }
 
-function formatMassivasDiagnosis(hostText, timeText, finding, technicalContext) {
+function formatMassivasDiagnosis(hostText, timeText, finding, technicalContext = []) {
   return [
     `• ${hostText}`,
     timeText ? `• ${timeText.replace(/^\s+/, "")}` : "",
     `• ${finding}`,
-    ...technicalContext.map((detail) => `• ${detail}`),
+    ...(technicalContext || []).map((detail) => `• ${detail}`),
   ].filter(Boolean).join("\n");
 }
 
@@ -1053,39 +1085,1359 @@ function summarizeMassivasTopology(records) {
   return paths.join(" ");
 }
 
+// Topology learning system
+let topologyLearningData = {
+  nodes: new Map(),
+  edges: new Map(),
+  corrections: [],
+  learnFromAlarms: function(records) {
+    records.forEach(record => {
+      const sourceHost = record.sourceHost || record.hosts[0];
+      const targetHost = record.interfaceData.remoteEquipment || extractMassivaAffectedHost(record);
+      const localIface = record.localInterface;
+      const remoteIface = record.interfaceData.remotePort;
+      const isTrunk = isTrunkInterface(localIface);
+      
+      if (sourceHost) {
+        this.addNode(sourceHost, 'source', record);
+      }
+      if (targetHost) {
+        this.addNode(targetHost, 'equipment', record);
+      }
+      if (sourceHost && targetHost) {
+        this.addEdge(sourceHost, targetHost, localIface, remoteIface, isTrunk, record);
+      }
+    });
+  },
+  addNode: function(id, type, record) {
+    if (!this.nodes.has(id)) {
+      this.nodes.set(id, {
+        id,
+        type,
+        interfaces: new Set(),
+        firstSeen: record.time,
+        lastSeen: record.time,
+        alarmCount: 0
+      });
+    }
+    const node = this.nodes.get(id);
+    node.lastSeen = record.time;
+    node.alarmCount++;
+    if (record.localInterface) node.interfaces.add(record.localInterface);
+  },
+  addEdge: function(source, target, localIface, remoteIface, isTrunk, record) {
+    const edgeId = `${source}->${target}`;
+    if (!this.edges.has(edgeId)) {
+      this.edges.set(edgeId, {
+        id: edgeId,
+        source,
+        target,
+        localInterfaces: new Set(),
+        remoteInterfaces: new Set(),
+        isTrunk: false,
+        firstSeen: record.time,
+        lastSeen: record.time,
+        alarmCount: 0
+      });
+    }
+    const edge = this.edges.get(edgeId);
+    edge.lastSeen = record.time;
+    edge.alarmCount++;
+    if (isTrunk) edge.isTrunk = true;
+    if (localIface) edge.localInterfaces.add(localIface);
+    if (remoteIface) edge.remoteInterfaces.add(remoteIface);
+  },
+  getTopologyData: function() {
+    return {
+      nodes: Array.from(this.nodes.values()),
+      edges: Array.from(this.edges.values())
+    };
+  },
+  correctNode: function(oldId, newData) {
+    const node = this.nodes.get(oldId);
+    if (node) {
+      this.corrections.push({ type: 'node', oldId, newData, timestamp: Date.now() });
+      if (newData.id && newData.id !== oldId) {
+        this.nodes.delete(oldId);
+        this.nodes.set(newData.id, { ...node, ...newData });
+      } else {
+        Object.assign(node, newData);
+      }
+    }
+  },
+  correctEdge: function(edgeId, newData) {
+    const edge = this.edges.get(edgeId);
+    if (edge) {
+      this.corrections.push({ type: 'edge', edgeId, newData, timestamp: Date.now() });
+      Object.assign(edge, newData);
+    }
+  },
+  removeNode: function(id) {
+    this.nodes.delete(id);
+    // Remove connected edges
+    for (const [edgeId, edge] of this.edges) {
+      if (edge.source === id || edge.target === id) {
+        this.edges.delete(edgeId);
+      }
+    }
+  },
+  removeEdge: function(edgeId) {
+    this.edges.delete(edgeId);
+  }
+};
+
+// Detect if interface is a trunk/LAG
+function isTrunkInterface(interfaceName) {
+  if (!interfaceName) return false;
+  const trunkPatterns = [
+    /eth-trunk/i,
+    /trunk/i,
+    /lag/i,
+    /bundle/i,
+    /port-channel/i,
+    /ae\d+/i,
+    /po\d+/i
+  ];
+  return trunkPatterns.some(pattern => pattern.test(interfaceName));
+}
+
+// Get interface icon based on type
+function getInterfaceIcon(interfaceName) {
+  if (!interfaceName) return '🔌';
+  if (/eth-trunk|trunk|lag|bundle|ae\d+|po\d+/i.test(interfaceName)) return '🔗';
+  if (/100ge/i.test(interfaceName)) return '⚡';
+  if (/40ge|10ge|xge/i.test(interfaceName)) return '⚡';
+  if (/ge|gigabit/i.test(interfaceName)) return '🌐';
+  if (/fe|fast/i.test(interfaceName)) return '📡';
+  if (/loopback/i.test(interfaceName)) return '🔄';
+  if (/vlan/i.test(interfaceName)) return '🏷️';
+  return '🔌';
+}
+
+// Get traffic direction arrow
+function getTrafficDirection(isBidirectional = true) {
+  return isBidirectional ? '↔️' : '→';
+}
+
+// Topology zoom and center controls
+function topoZoomIn() {
+  const graph = fields.massivasTopologyGraph;
+  if (graph && graph._cy) {
+    graph._cy.zoom(graph._cy.zoom() * 1.25);
+  }
+}
+
+function topoZoomOut() {
+  const graph = fields.massivasTopologyGraph;
+  if (graph && graph._cy) {
+    graph._cy.zoom(graph._cy.zoom() / 1.25);
+  }
+}
+
+function topoZoomFit() {
+  const graph = fields.massivasTopologyGraph;
+  if (graph && graph._cy) {
+    graph._cy.fit(null, 48);
+  }
+}
+
+function topoCenter() {
+  const graph = fields.massivasTopologyGraph;
+  if (graph && graph._cy) {
+    graph._cy.center();
+  }
+}
+
+function topoRelayout() {
+  const graph = fields.massivasTopologyGraph;
+  if (graph && graph._cy && typeof graph._cy.destroyed === 'function' && !graph._cy.destroyed()) {
+    try { graph._cy.stop(); } catch (e) {}
+    const layout = graph._cy.layout({
+      name: "cose",
+      animate: false,
+      fit: true,
+      padding: 50,
+      nodeRepulsion: 600000,
+      idealEdgeLength: 160
+    });
+    layout.run();
+  }
+}
+
+function showTopologyHud(html) {
+  const hud = document.getElementById("massivasTopologyHud");
+  if (hud) {
+    hud.innerHTML = html;
+    hud.hidden = false;
+  }
+}
+
+function hideTopologyHud() {
+  const hud = document.getElementById("massivasTopologyHud");
+  if (hud) {
+    hud.hidden = true;
+  }
+}
+
+function getEquipmentSvgUri(type, color = '#0b6f6a', isDark = false) {
+  let svg = '';
+  switch (type) {
+    case 'pe':
+      // Cisco 3D Router (Isometric Cylinder / Puck)
+      // Symmetrical 2:1 ellipse cx=32, cy=22, rx=24, ry=12 with 4 orthogonally aligned arrows
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+        <defs>
+          <linearGradient id="pe_top_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="${isDark ? '#ef4444' : '#14b8a6'}"/>
+            <stop offset="100%" stop-color="${isDark ? '#b91c1c' : '#0d9488'}"/>
+          </linearGradient>
+          <linearGradient id="pe_side_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="${isDark ? '#7f1d1d' : '#0f766e'}"/>
+            <stop offset="50%" stop-color="${isDark ? '#991b1b' : '#115e59'}"/>
+            <stop offset="100%" stop-color="${isDark ? '#450a0a' : '#042f2e'}"/>
+          </linearGradient>
+          <filter id="pe_sh_${isDark ? 'd' : 'l'}" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="4" stdDeviation="2.5" flood-color="#000000" flood-opacity="${isDark ? '0.45' : '0.2'}"/>
+          </filter>
+        </defs>
+        <g filter="url(#pe_sh_${isDark ? 'd' : 'l'})">
+          <path d="M8 22 v16 c0 6.63 10.75 12 24 12 s24 -5.37 24 -12 v-16 Z" fill="url(#pe_side_${isDark ? 'd' : 'l'})"/>
+          <path d="M8 38 c0 6.63 10.75 12 24 12 s24 -5.37 24 -12" fill="none" stroke="${isDark ? '#f87171' : '#2dd4bf'}" stroke-width="0.8" opacity="0.6"/>
+          <ellipse cx="32" cy="22" rx="24" ry="12" fill="url(#pe_top_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#fca5a5' : '#5eead4'}" stroke-width="1.5"/>
+          <path d="M14 22 h10 M20 19 l4 3 l-4 3" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M50 22 h-10 M44 19 l-4 3 l4 3" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M32 18 v-6 M29 15 l3 -3 l3 3" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M32 26 v6 M29 29 l3 3 l3 -3" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="32" cy="22" r="2.2" fill="#ffffff"/>
+        </g>
+      </svg>`;
+      break;
+
+    case 'core':
+      // Cisco 3D Core Router (Hexagonal Isometric Chassis)
+      // Exact 30 deg isometric geometry (32,8 -> 56,20 -> 32,32 -> 8,20)
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+        <defs>
+          <linearGradient id="core_top_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="${isDark ? '#c084fc' : '#3b82f6'}"/>
+            <stop offset="100%" stop-color="${isDark ? '#9333ea' : '#1d4ed8'}"/>
+          </linearGradient>
+          <linearGradient id="core_left_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="${isDark ? '#7e22ce' : '#1e40af'}"/>
+            <stop offset="100%" stop-color="${isDark ? '#3b0764' : '#0f172a'}"/>
+          </linearGradient>
+          <linearGradient id="core_right_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="${isDark ? '#6b21a8' : '#1e3a8a'}"/>
+            <stop offset="100%" stop-color="${isDark ? '#2e1065' : '#090d16'}"/>
+          </linearGradient>
+          <filter id="core_sh_${isDark ? 'd' : 'l'}" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="4" stdDeviation="2.5" flood-color="#000000" flood-opacity="${isDark ? '0.45' : '0.25'}"/>
+          </filter>
+        </defs>
+        <g filter="url(#core_sh_${isDark ? 'd' : 'l'})">
+          <polygon points="8,20 32,32 32,50 8,38" fill="url(#core_left_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#a855f7' : '#1e40af'}" stroke-width="0.8"/>
+          <polygon points="56,20 32,32 32,50 56,38" fill="url(#core_right_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#9333ea' : '#1e3a8a'}" stroke-width="0.8"/>
+          <polygon points="32,8 56,20 32,32 8,20" fill="url(#core_top_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#e9d5ff' : '#93c5fd'}" stroke-width="1.5"/>
+          <ellipse cx="32" cy="20" rx="9" ry="4.5" fill="none" stroke="#ffffff" stroke-width="1.5"/>
+          <path d="M20 20 h24 M32 14 v12" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/>
+          <circle cx="32" cy="20" r="2" fill="#ffffff"/>
+          <circle cx="16" cy="38" r="1.3" fill="${isDark ? '#e9d5ff' : '#93c5fd'}"/>
+          <circle cx="22" cy="41" r="1.3" fill="${isDark ? '#e9d5ff' : '#93c5fd'}"/>
+          <circle cx="28" cy="44" r="1.3" fill="${isDark ? '#e9d5ff' : '#93c5fd'}"/>
+        </g>
+      </svg>`;
+      break;
+
+    case 'switch':
+      // Cisco 3D Switch (Low-Profile Isometric Box)
+      // Top face: (32,10 -> 56,22 -> 32,34 -> 8,22)
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+        <defs>
+          <linearGradient id="sw_top_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="${isDark ? '#34d399' : '#10b981'}"/>
+            <stop offset="100%" stop-color="${isDark ? '#059669' : '#047857'}"/>
+          </linearGradient>
+          <linearGradient id="sw_left_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="${isDark ? '#047857' : '#065f46'}"/>
+            <stop offset="100%" stop-color="${isDark ? '#022c22' : '#022c22'}"/>
+          </linearGradient>
+          <linearGradient id="sw_right_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="${isDark ? '#065f46' : '#047857'}"/>
+            <stop offset="100%" stop-color="${isDark ? '#022c22' : '#064e3b'}"/>
+          </linearGradient>
+          <filter id="sw_sh_${isDark ? 'd' : 'l'}" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="4" stdDeviation="2.5" flood-color="#000000" flood-opacity="${isDark ? '0.45' : '0.25'}"/>
+          </filter>
+        </defs>
+        <g filter="url(#sw_sh_${isDark ? 'd' : 'l'})">
+          <polygon points="8,22 32,34 32,46 8,34" fill="url(#sw_left_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#10b981' : '#065f46'}" stroke-width="0.8"/>
+          <polygon points="56,22 32,34 32,46 56,34" fill="url(#sw_right_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#059669' : '#047857'}" stroke-width="0.8"/>
+          <polygon points="32,10 56,22 32,34 8,22" fill="url(#sw_top_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#a7f3d0' : '#6ee7b7'}" stroke-width="1.5"/>
+          <path d="M22 17 h18 M36 14 l4 3 l-4 3" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M42 27 h-18 M28 24 l-4 3 l4 3" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="12" y="34.5" width="3.5" height="3" rx="0.5" fill="#a7f3d0"/>
+          <rect x="18" y="37.5" width="3.5" height="3" rx="0.5" fill="#a7f3d0"/>
+          <rect x="24" y="40.5" width="3.5" height="3" rx="0.5" fill="#a7f3d0"/>
+        </g>
+      </svg>`;
+      break;
+
+    case 'dwdm':
+      // Cisco 3D Optical / DWDM Transponder
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+        <defs>
+          <linearGradient id="dwdm_top_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="${isDark ? '#fbbf24' : '#f59e0b'}"/>
+            <stop offset="100%" stop-color="${isDark ? '#d97706' : '#b45309'}"/>
+          </linearGradient>
+          <linearGradient id="dwdm_left_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="${isDark ? '#92400e' : '#92400e'}"/>
+            <stop offset="100%" stop-color="${isDark ? '#451a03' : '#451a03'}"/>
+          </linearGradient>
+          <linearGradient id="dwdm_right_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="${isDark ? '#78350f' : '#78350f'}"/>
+            <stop offset="100%" stop-color="${isDark ? '#451a03' : '#451a03'}"/>
+          </linearGradient>
+          <filter id="dwdm_sh_${isDark ? 'd' : 'l'}" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="4" stdDeviation="2.5" flood-color="#000000" flood-opacity="${isDark ? '0.45' : '0.25'}"/>
+          </filter>
+        </defs>
+        <g filter="url(#dwdm_sh_${isDark ? 'd' : 'l'})">
+          <polygon points="8,22 32,34 32,46 8,34" fill="url(#dwdm_left_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#fbbf24' : '#78350f'}" stroke-width="0.8"/>
+          <polygon points="56,22 32,34 32,46 56,34" fill="url(#dwdm_right_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#d97706' : '#78350f'}" stroke-width="0.8"/>
+          <polygon points="32,10 56,22 32,34 8,22" fill="url(#dwdm_top_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#fef08a' : '#fde68a'}" stroke-width="1.5"/>
+          <path d="M16 22 c4 -4 8 -4 16 0 s12 4 16 0" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+          <circle cx="16" cy="22" r="2" fill="#ffffff"/>
+          <circle cx="32" cy="22" r="2" fill="#ffffff"/>
+          <circle cx="48" cy="22" r="2" fill="#ffffff"/>
+        </g>
+      </svg>`;
+      break;
+
+    case 'olt':
+      // GPON OLT Optical Terminal
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+        <defs>
+          <linearGradient id="olt_top_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="${isDark ? '#38bdf8' : '#0284c7'}"/>
+            <stop offset="100%" stop-color="${isDark ? '#0284c7' : '#0369a1'}"/>
+          </linearGradient>
+          <linearGradient id="olt_left_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="${isDark ? '#075985' : '#075985'}"/>
+            <stop offset="100%" stop-color="${isDark ? '#082f49' : '#082f49'}"/>
+          </linearGradient>
+          <linearGradient id="olt_right_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="${isDark ? '#0c4a6e' : '#0c4a6e'}"/>
+            <stop offset="100%" stop-color="${isDark ? '#082f49' : '#082f49'}"/>
+          </linearGradient>
+          <filter id="olt_sh_${isDark ? 'd' : 'l'}" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="4" stdDeviation="2.5" flood-color="#000000" flood-opacity="${isDark ? '0.45' : '0.25'}"/>
+          </filter>
+        </defs>
+        <g filter="url(#olt_sh_${isDark ? 'd' : 'l'})">
+          <polygon points="8,20 32,32 32,48 8,36" fill="url(#olt_left_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#38bdf8' : '#0369a1'}" stroke-width="0.8"/>
+          <polygon points="56,20 32,32 32,48 56,36" fill="url(#olt_right_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#0284c7' : '#0369a1'}" stroke-width="0.8"/>
+          <polygon points="32,8 56,20 32,32 8,20" fill="url(#olt_top_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#bae6fd' : '#7dd3fc'}" stroke-width="1.5"/>
+          <path d="M32 14 v6 M32 20 l-10 4 M32 20 l10 4" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="32" cy="14" r="2" fill="#ffffff"/>
+          <circle cx="22" cy="24" r="1.8" fill="#ffffff"/>
+          <circle cx="42" cy="24" r="1.8" fill="#ffffff"/>
+        </g>
+      </svg>`;
+      break;
+
+    default:
+      // Generic Host / Server (3D Blade Chassis)
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+        <defs>
+          <linearGradient id="srv_top_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="${isDark ? '#94a3b8' : '#64748b'}"/>
+            <stop offset="100%" stop-color="${isDark ? '#64748b' : '#475569'}"/>
+          </linearGradient>
+          <linearGradient id="srv_left_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="${isDark ? '#334155' : '#334155'}"/>
+            <stop offset="100%" stop-color="${isDark ? '#0f172a' : '#0f172a'}"/>
+          </linearGradient>
+          <linearGradient id="srv_right_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="${isDark ? '#1e293b' : '#1e293b'}"/>
+            <stop offset="100%" stop-color="${isDark ? '#0f172a' : '#0f172a'}"/>
+          </linearGradient>
+          <filter id="srv_sh_${isDark ? 'd' : 'l'}" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="4" stdDeviation="2.5" flood-color="#000000" flood-opacity="${isDark ? '0.45' : '0.25'}"/>
+          </filter>
+        </defs>
+        <g filter="url(#srv_sh_${isDark ? 'd' : 'l'})">
+          <polygon points="10,22 32,32 32,50 10,40" fill="url(#srv_left_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#94a3b8' : '#475569'}" stroke-width="0.8"/>
+          <polygon points="54,22 32,32 32,50 54,40" fill="url(#srv_right_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#64748b' : '#475569'}" stroke-width="0.8"/>
+          <polygon points="32,10 54,22 32,32 10,22" fill="url(#srv_top_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#e2e8f0' : '#cbd5e1'}" stroke-width="1.5"/>
+          <line x1="14" y1="31" x2="28" y2="37" stroke="#94a3b8" stroke-width="1.2"/>
+          <line x1="14" y1="36" x2="28" y2="42" stroke="#94a3b8" stroke-width="1.2"/>
+          <line x1="14" y1="41" x2="28" y2="47" stroke="#94a3b8" stroke-width="1.2"/>
+          <circle cx="15" cy="27" r="1.2" fill="#38bdf8"/>
+          <circle cx="18" cy="28.3" r="1.2" fill="#22c55e"/>
+        </g>
+      </svg>`;
+  }
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+const cityCache = new Map();
+
+function extractHostMetadata(hostname) {
+  const normalized = String(hostname || '').toUpperCase().replace(/[._]/g, '-');
+  const parts = normalized.split('-').filter(Boolean);
+  
+  if (parts.length >= 4) {
+    let uf = '';
+    let sigla = '';
+    let pop = '';
+    
+    if (parts[0] === 'BR' && parts.length >= 4) {
+      uf = parts[1];
+      sigla = parts[2];
+      pop = parts[3];
+    } else if (parts.length >= 3 && /^[A-Z]{2}$/.test(parts[0])) {
+      uf = parts[0];
+      sigla = parts[1];
+      pop = parts[2];
+    } else {
+      sigla = parts[0];
+      pop = parts[1];
+    }
+    
+    return { uf, sigla, pop };
+  }
+  
+  return { uf: '', sigla: String(hostname || '').slice(0, 3).toUpperCase(), pop: '' };
+}
+
+function parseCityResponse(html, expectedUf = '') {
+  if (!html || typeof html !== 'string') return null;
+  
+  const entries = html.split(/<hr\s*\/?>/i).map(e => e.trim()).filter(Boolean);
+  const parsedList = [];
+  
+  for (const entry of entries) {
+    const ufMatch = entry.match(/<b>\s*UF:\s*<\/b>\s*([A-Z]{2})/i) || entry.match(/UF:\s*([A-Z]{2})/i);
+    const munMatch = entry.match(/<b>\s*Municipio:\s*<\/b>\s*([^<]+)/i) || entry.match(/Municipio:\s*([^<]+)/i);
+    const locMatch = entry.match(/<b>\s*Localidade:\s*<\/b>\s*([^<]+)/i);
+    const regMatch = entry.match(/<b>\s*Regi[ãa]o:\s*<\/b>\s*([^|<]+)/i);
+    const cnlMatch = entry.match(/<b>\s*CNL:\s*<\/b>\s*([A-Z0-9]+)/i);
+
+    const uf = ufMatch ? ufMatch[1].trim().toUpperCase() : '';
+    const municipio = munMatch ? munMatch[1].trim() : (locMatch ? locMatch[1].trim() : '');
+    const localidade = locMatch ? locMatch[1].trim() : municipio;
+    const regiao = regMatch ? regMatch[1].trim() : '';
+    const cnl = cnlMatch ? cnlMatch[1].trim().toUpperCase() : '';
+
+    if (municipio || uf) {
+      parsedList.push({ uf, municipio, localidade, regiao, cnl });
+    }
+  }
+
+  if (parsedList.length === 0) return null;
+
+  if (expectedUf) {
+    const match = parsedList.find(p => p.uf === expectedUf.toUpperCase());
+    if (match) return match;
+  }
+
+  return parsedList[0];
+}
+
+const TELECOM_CNL_MAP = {
+  // Capitais (UF)
+  'BSA': { municipio: 'Brasília', uf: 'DF' },
+  'BSB': { municipio: 'Brasília', uf: 'DF' },
+  'SPO': { municipio: 'São Paulo', uf: 'SP' },
+  'SAO': { municipio: 'São Paulo', uf: 'SP' },
+  'RJO': { municipio: 'Rio de Janeiro', uf: 'RJ' },
+  'RIO': { municipio: 'Rio de Janeiro', uf: 'RJ' },
+  'BHZ': { municipio: 'Belo Horizonte', uf: 'MG' },
+  'BHO': { municipio: 'Belo Horizonte', uf: 'MG' },
+  'CTA': { municipio: 'Curitiba', uf: 'PR' },
+  'CTB': { municipio: 'Curitiba', uf: 'PR' },
+  'CUR': { municipio: 'Curitiba', uf: 'PR' },
+  'POA': { municipio: 'Porto Alegre', uf: 'RS' },
+  'PAG': { municipio: 'Porto Alegre', uf: 'RS' },
+  'SSA': { municipio: 'Salvador', uf: 'BA' },
+  'SLV': { municipio: 'Salvador', uf: 'BA' },
+  'REC': { municipio: 'Recife', uf: 'PE' },
+  'RCE': { municipio: 'Recife', uf: 'PE' },
+  'FOR': { municipio: 'Fortaleza', uf: 'CE' },
+  'FTZ': { municipio: 'Fortaleza', uf: 'CE' },
+  'BLM': { municipio: 'Belém', uf: 'PA' },
+  'BEL': { municipio: 'Belém', uf: 'PA' },
+  'MAO': { municipio: 'Manaus', uf: 'AM' },
+  'MAN': { municipio: 'Manaus', uf: 'AM' },
+  'GYN': { municipio: 'Goiânia', uf: 'GO' },
+  'GOI': { municipio: 'Goiânia', uf: 'GO' },
+  'CBA': { municipio: 'Cuiabá', uf: 'MT' },
+  'CUI': { municipio: 'Cuiabá', uf: 'MT' },
+  'CGB': { municipio: 'Campo Grande', uf: 'MS' },
+  'CGR': { municipio: 'Campo Grande', uf: 'MS' },
+  'VIX': { municipio: 'Vitória', uf: 'ES' },
+  'VIT': { municipio: 'Vitória', uf: 'ES' },
+  'FLN': { municipio: 'Florianópolis', uf: 'SC' },
+  'FLO': { municipio: 'Florianópolis', uf: 'SC' },
+  'NAT': { municipio: 'Natal', uf: 'RN' },
+  'NTL': { municipio: 'Natal', uf: 'RN' },
+  'MCZ': { municipio: 'Maceió', uf: 'AL' },
+  'MAC': { municipio: 'Maceió', uf: 'AL' },
+  'JPA': { municipio: 'João Pessoa', uf: 'PB' },
+  'JPO': { municipio: 'João Pessoa', uf: 'PB' },
+  'THE': { municipio: 'Teresina', uf: 'PI' },
+  'TER': { municipio: 'Teresina', uf: 'PI' },
+  'SLZ': { municipio: 'São Luís', uf: 'MA' },
+  'SLS': { municipio: 'São Luís', uf: 'MA' },
+  'AJU': { municipio: 'Aracaju', uf: 'SE' },
+  'ARC': { municipio: 'Aracaju', uf: 'SE' },
+  'PVH': { municipio: 'Porto Velho', uf: 'RO' },
+  'PVO': { municipio: 'Porto Velho', uf: 'RO' },
+  'RBR': { municipio: 'Rio Branco', uf: 'AC' },
+  'RBC': { municipio: 'Rio Branco', uf: 'AC' },
+  'MCP': { municipio: 'Macapá', uf: 'AP' },
+  'BVB': { municipio: 'Boa Vista', uf: 'RR' },
+  'BOA': { municipio: 'Boa Vista', uf: 'RR' },
+  'PMW': { municipio: 'Palmas', uf: 'TO' },
+  'PLS': { municipio: 'Palmas', uf: 'TO' },
+
+  // Polos Regionais e Grandes Cidades
+  'CPS': { municipio: 'Campinas', uf: 'SP' },
+  'SJC': { municipio: 'São José dos Campos', uf: 'SP' },
+  'STO': { municipio: 'Santos', uf: 'SP' },
+  'SAN': { municipio: 'Santos', uf: 'SP' },
+  'RIB': { municipio: 'Ribeirão Preto', uf: 'SP' },
+  'RBP': { municipio: 'Ribeirão Preto', uf: 'SP' },
+  'SOR': { municipio: 'Sorocaba', uf: 'SP' },
+  'BAU': { municipio: 'Bauru', uf: 'SP' },
+  'SDR': { municipio: 'Santo André', uf: 'SP' },
+  'SBC': { municipio: 'São Bernardo do Campo', uf: 'SP' },
+  'OSA': { municipio: 'Osasco', uf: 'SP' },
+  'GRU': { municipio: 'Guarulhos', uf: 'SP' },
+  'JDI': { municipio: 'Jundiaí', uf: 'SP' },
+  'PIR': { municipio: 'Piracicaba', uf: 'SP' },
+  'SCA': { municipio: 'São Carlos', uf: 'SP' },
+  'PRU': { municipio: 'Presidente Prudente', uf: 'SP' },
+  'SJP': { municipio: 'São José do Rio Preto', uf: 'SP' },
+  'FRA': { municipio: 'Franca', uf: 'SP' },
+  'TAU': { municipio: 'Taubaté', uf: 'SP' },
+  'BAR': { municipio: 'Barueri', uf: 'SP' },
+  'ALF': { municipio: 'Alphaville', uf: 'SP' },
+  
+  'UDI': { municipio: 'Uberlândia', uf: 'MG' },
+  'UBA': { municipio: 'Uberaba', uf: 'MG' },
+  'JDR': { municipio: 'Juiz de Fora', uf: 'MG' },
+  'JFA': { municipio: 'Juiz de Fora', uf: 'MG' },
+  'MOC': { municipio: 'Montes Claros', uf: 'MG' },
+  'GVL': { municipio: 'Governador Valadares', uf: 'MG' },
+  'IPA': { municipio: 'Ipatinga', uf: 'MG' },
+  'DIV': { municipio: 'Divinópolis', uf: 'MG' },
+  'POC': { municipio: 'Poços de Caldas', uf: 'MG' },
+  'VAG': { municipio: 'Varginha', uf: 'MG' },
+  'PTC': { municipio: 'Patos de Minas', uf: 'MG' },
+  'CON': { municipio: 'Contagem', uf: 'MG' },
+  'BET': { municipio: 'Betim', uf: 'MG' },
+  
+  'NTR': { municipio: 'Niterói', uf: 'RJ' },
+  'NIT': { municipio: 'Niterói', uf: 'RJ' },
+  'DCX': { municipio: 'Duque de Caxias', uf: 'RJ' },
+  'SGO': { municipio: 'São Gonçalo', uf: 'RJ' },
+  'VOL': { municipio: 'Volta Redonda', uf: 'RJ' },
+  'VRD': { municipio: 'Volta Redonda', uf: 'RJ' },
+  'CFB': { municipio: 'Cabo Frio', uf: 'RJ' },
+  'CMP': { municipio: 'Campos dos Goytacazes', uf: 'RJ' },
+  'NOF': { municipio: 'Nova Friburgo', uf: 'RJ' },
+  'NIG': { municipio: 'Nova Iguaçu', uf: 'RJ' },
+  
+  'LON': { municipio: 'Londrina', uf: 'PR' },
+  'LDA': { municipio: 'Londrina', uf: 'PR' },
+  'MGA': { municipio: 'Maringá', uf: 'PR' },
+  'MRG': { municipio: 'Maringá', uf: 'PR' },
+  'CSC': { municipio: 'Cascavel', uf: 'PR' },
+  'FOZ': { municipio: 'Foz do Iguaçu', uf: 'PR' },
+  'FZI': { municipio: 'Foz do Iguaçu', uf: 'PR' },
+  'PGR': { municipio: 'Ponta Grossa', uf: 'PR' },
+  'GUA': { municipio: 'Guarapuava', uf: 'PR' },
+  'PTO': { municipio: 'Pato Branco', uf: 'PR' },
+  'APU': { municipio: 'Apucarana', uf: 'PR' },
+  'UMU': { municipio: 'Umuarama', uf: 'PR' },
+  'TBA': { municipio: 'Curitiba', uf: 'PR' },
+  
+  'CXS': { municipio: 'Caxias do Sul', uf: 'RS' },
+  'PEL': { municipio: 'Pelotas', uf: 'RS' },
+  'SMO': { municipio: 'Santa Maria', uf: 'RS' },
+  'SMA': { municipio: 'Santa Maria', uf: 'RS' },
+  'PAS': { municipio: 'Passo Fundo', uf: 'RS' },
+  'PFU': { municipio: 'Passo Fundo', uf: 'RS' },
+  'RGO': { municipio: 'Rio Grande', uf: 'RS' },
+  'CAN': { municipio: 'Canoas', uf: 'RS' },
+  'NHB': { municipio: 'Novo Hamburgo', uf: 'RS' },
+  'SLE': { municipio: 'São Leopoldo', uf: 'RS' },
+  'SCS': { municipio: 'Santa Cruz do Sul', uf: 'RS' },
+  'BGV': { municipio: 'Bento Gonçalves', uf: 'RS' },
+  'ERE': { municipio: 'Erechim', uf: 'RS' },
+  'LJD': { municipio: 'Lajeado', uf: 'RS' },
+  'URU': { municipio: 'Uruguaiana', uf: 'RS' },
+  
+  'JOI': { municipio: 'Joinville', uf: 'SC' },
+  'JVE': { municipio: 'Joinville', uf: 'SC' },
+  'BNU': { municipio: 'Blumenau', uf: 'SC' },
+  'BLU': { municipio: 'Blumenau', uf: 'SC' },
+  'CHA': { municipio: 'Chapecó', uf: 'SC' },
+  'XAP': { municipio: 'Chapecó', uf: 'SC' },
+  'CRI': { municipio: 'Criciúma', uf: 'SC' },
+  'ITA': { municipio: 'Itajaí', uf: 'SC' },
+  'BCY': { municipio: 'Balneário Camboriú', uf: 'SC' },
+  'LGS': { municipio: 'Lages', uf: 'SC' },
+  'TUB': { municipio: 'Tubarão', uf: 'SC' },
+  'BQU': { municipio: 'Brusque', uf: 'SC' },
+  
+  'FSA': { municipio: 'Feira de Santana', uf: 'BA' },
+  'VCA': { municipio: 'Vitória da Conquista', uf: 'BA' },
+  'ILH': { municipio: 'Ilhéus', uf: 'BA' },
+  'JUA': { municipio: 'Juazeiro', uf: 'BA' },
+  'LEX': { municipio: 'Luís Eduardo Magalhães', uf: 'BA' },
+  'POR': { municipio: 'Porto Seguro', uf: 'BA' },
+  'ALA': { municipio: 'Alagoinhas', uf: 'BA' },
+  'CAM': { municipio: 'Camaçari', uf: 'BA' },
+  'LAU': { municipio: 'Lauro de Freitas', uf: 'BA' },
+  
+  'CRU': { municipio: 'Caruaru', uf: 'PE' },
+  'CAR': { municipio: 'Caruaru', uf: 'PE' },
+  'PET': { municipio: 'Petrolina', uf: 'PE' },
+  'PTL': { municipio: 'Petrolina', uf: 'PE' },
+  'OLI': { municipio: 'Olinda', uf: 'PE' },
+  'JAB': { municipio: 'Jaboatão dos Guararapes', uf: 'PE' },
+  'GAR': { municipio: 'Garanhuns', uf: 'PE' },
+  
+  'CPG': { municipio: 'Campina Grande', uf: 'PB' },
+  'CGP': { municipio: 'Campina Grande', uf: 'PB' },
+  'PAT': { municipio: 'Patos', uf: 'PB' },
+  'SOU': { municipio: 'Sousa', uf: 'PB' },
+  'CZS': { municipio: 'Cajazeiras', uf: 'PB' },
+  
+  'JDO': { municipio: 'Juazeiro do Norte', uf: 'CE' },
+  'SOB': { municipio: 'Sobral', uf: 'CE' },
+  'SBR': { municipio: 'Sobral', uf: 'CE' },
+  'CAU': { municipio: 'Caucaia', uf: 'CE' },
+  'MAR': { municipio: 'Maracanaú', uf: 'CE' },
+  'CRF': { municipio: 'Crato', uf: 'CE' },
+  'IGN': { municipio: 'Iguatu', uf: 'CE' },
+  'QUI': { municipio: 'Quixadá', uf: 'CE' },
+  
+  'MOS': { municipio: 'Mossoró', uf: 'RN' },
+  'MSO': { municipio: 'Mossoró', uf: 'RN' },
+  'CAI': { municipio: 'Caicó', uf: 'RN' },
+  
+  'STN': { municipio: 'Santarém', uf: 'PA' },
+  'STM': { municipio: 'Santarém', uf: 'PA' },
+  'MAB': { municipio: 'Marabá', uf: 'PA' },
+  'MBA': { municipio: 'Marabá', uf: 'PA' },
+  'ALT': { municipio: 'Altamira', uf: 'PA' },
+  'RED': { municipio: 'Redenção', uf: 'PA' },
+  
+  'IMP': { municipio: 'Imperatriz', uf: 'MA' },
+  'ITZ': { municipio: 'Imperatriz', uf: 'MA' },
+  'CAX': { municipio: 'Caxias', uf: 'MA' },
+  'TIM': { municipio: 'Timon', uf: 'MA' },
+  'BAC': { municipio: 'Bacabal', uf: 'MA' },
+  'BAL': { municipio: 'Balsas', uf: 'MA' },
+  
+  'PHB': { municipio: 'Parnaíba', uf: 'PI' },
+  'PIC': { municipio: 'Picos', uf: 'PI' },
+  
+  'ARA': { municipio: 'Arapiraca', uf: 'AL' },
+  'PAL': { municipio: 'Palmeira dos Índios', uf: 'AL' },
+  
+  'LAG': { municipio: 'Lagarto', uf: 'SE' },
+  
+  'ANP': { municipio: 'Anápolis', uf: 'GO' },
+  'RVD': { municipio: 'Rio Verde', uf: 'GO' },
+  'JAT': { municipio: 'Jataí', uf: 'GO' },
+  'CAT': { municipio: 'Catalão', uf: 'GO' },
+  'LUZ': { municipio: 'Luziânia', uf: 'GO' },
+  'VAL': { municipio: 'Valparaíso de Goiás', uf: 'GO' },
+  'CAL': { municipio: 'Caldas Novas', uf: 'GO' },
+  
+  'RDO': { municipio: 'Rondonópolis', uf: 'MT' },
+  'ROO': { municipio: 'Rondonópolis', uf: 'MT' },
+  'SIN': { municipio: 'Sinop', uf: 'MT' },
+  'SNP': { municipio: 'Sinop', uf: 'MT' },
+  'TGA': { municipio: 'Tangará da Serra', uf: 'MT' },
+  'LUC': { municipio: 'Lucas do Rio Verde', uf: 'MT' },
+  'PRI': { municipio: 'Primavera do Leste', uf: 'MT' },
+  
+  'DOU': { municipio: 'Dourados', uf: 'MS' },
+  'TLS': { municipio: 'Três Lagoas', uf: 'MS' },
+  'TLG': { municipio: 'Três Lagoas', uf: 'MS' },
+  'COR': { municipio: 'Corumbá', uf: 'MS' },
+  'PPO': { municipio: 'Ponta Porã', uf: 'MS' },
+  
+  'JPR': { municipio: 'Ji-Paraná', uf: 'RO' },
+  'ARI': { municipio: 'Ariquemes', uf: 'RO' },
+  'CAK': { municipio: 'Cacoal', uf: 'RO' },
+  'VIL': { municipio: 'Vilhena', uf: 'RO' },
+  'ROL': { municipio: 'Rolim de Moura', uf: 'RO' },
+  
+  'CZS': { municipio: 'Cruzeiro do Sul', uf: 'AC' },
+  'LAR': { municipio: 'Laranjal do Jari', uf: 'AP' },
+  'RRZ': { municipio: 'Rorainópolis', uf: 'RR' },
+  
+  'AGN': { municipio: 'Araguaína', uf: 'TO' },
+  'GUR': { municipio: 'Gurupi', uf: 'TO' }
+};
+
+async function fetchCityInfo(sigla, expectedUf = '') {
+  if (!sigla) return null;
+  const s = String(sigla).toUpperCase();
+  const uf = (expectedUf || '').toUpperCase();
+  const key = `${s}_${uf}`;
+  
+  if (cityCache.has(key)) {
+    return cityCache.get(key);
+  }
+
+  // 1. Instant match from telecom CNL dictionary (zero CORS friction)
+  if (TELECOM_CNL_MAP[s]) {
+    const entry = TELECOM_CNL_MAP[s];
+    const match = {
+      municipio: entry.municipio,
+      uf: uf || entry.uf,
+      cnl: s
+    };
+    cityCache.set(key, match);
+    return match;
+  }
+  
+  // 2. Query external endpoint if available, with safe silent catch for CORS
+  try {
+    const formData = new URLSearchParams();
+    formData.append('q', s.toLowerCase());
+    
+    const res = await fetch('https://dev.onerio.pw/raphael/index.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formData.toString()
+    });
+    
+    if (res && res.ok) {
+      const html = await res.text();
+      const parsed = parseCityResponse(html, expectedUf);
+      if (parsed) {
+        cityCache.set(key, parsed);
+        return parsed;
+      }
+    }
+  } catch (e) {
+    // Silent catch (CORS or network error)
+  }
+  
+  // 3. Fallback to sigla/uf format
+  const fallback = {
+    municipio: s,
+    uf: uf,
+    cnl: s
+  };
+  cityCache.set(key, fallback);
+  return fallback;
+}
+
+function resolveNodesCityInfo(cyInstance) {
+  if (!cyInstance || typeof cyInstance.nodes !== 'function' || cyInstance.destroyed()) return;
+  
+  cyInstance.nodes().forEach(node => {
+    const d = node.data();
+    const host = d.fullHost || d.id;
+    const meta = extractHostMetadata(host);
+    const info = classifyBackboneHost(host, d.deliveryType, d.trigger);
+    
+    if (meta.sigla) {
+      fetchCityInfo(meta.sigla, meta.uf).then(cityInfo => {
+        if (!cityInfo || !cyInstance || cyInstance.destroyed()) return;
+        const cityDisplay = `${cityInfo.municipio} - ${cityInfo.uf || meta.uf}`;
+        const popText = meta.pop ? ` (${meta.pop})` : '';
+        const updatedLabel = `${info.badge} ${host}\n📍 ${cityDisplay}${popText}`;
+        node.data('city', cityDisplay);
+        node.data('label', updatedLabel);
+      });
+    }
+  });
+}
+
+function classifyBackboneHost(hostname, deliveryType = '', trigger = '') {
+  const host = String(hostname || '').toUpperCase();
+  const deliv = String(deliveryType || '').toUpperCase();
+  const trig = String(trigger || '').toUpperCase();
+  const isDark = document.body && document.body.classList.contains('theme-dark-red');
+
+  if (/(?:[-.]|^)(?:PE|PE\d+)(?:[-.]|$)/i.test(host)) {
+    const color = isDark ? '#f87171' : '#0b6f6a';
+    return {
+      role: 'PE Router',
+      badge: '[🔀 PE]',
+      type: 'pe',
+      shape: 'rectangle',
+      borderColor: color,
+      svgIcon: getEquipmentSvgUri('pe', color, isDark)
+    };
+  }
+  if (/(?:[-.]|^)(?:CO|CORE|BB|P\d*|RT\d*)(?:[-.]|$)/i.test(host) || trig.includes('BBGR') || trig.includes('BACKBONE')) {
+    const color = isDark ? '#c084fc' : '#1e3a8a';
+    return {
+      role: 'Core Router',
+      badge: '[🌐 CORE]',
+      type: 'core',
+      shape: 'rectangle',
+      borderColor: color,
+      svgIcon: getEquipmentSvgUri('core', color, isDark)
+    };
+  }
+  if (/(?:[-.]|^)(?:SW|SWC|SWF|SWA|DSW|ACC)(?:[-.]|$)/i.test(host)) {
+    const color = isDark ? '#34d399' : '#047857';
+    return {
+      role: 'Metro Switch',
+      badge: '[🔌 SW]',
+      type: 'switch',
+      shape: 'rectangle',
+      borderColor: color,
+      svgIcon: getEquipmentSvgUri('switch', color, isDark)
+    };
+  }
+  if (/(?:[-.]|^)(?:TP|DWDM|OTN|MUX|TRANS)(?:[-.]|$)/i.test(host) || deliv === 'DWD' || deliv === 'DWDM') {
+    const color = isDark ? '#fbbf24' : '#b45309';
+    return {
+      role: 'DWDM / TX',
+      badge: '[📡 DWDM]',
+      type: 'dwdm',
+      shape: 'rectangle',
+      borderColor: color,
+      svgIcon: getEquipmentSvgUri('dwdm', color, isDark)
+    };
+  }
+  if (/(?:[-.]|^)(?:OLT|GPON)(?:[-.]|$)/i.test(host)) {
+    const color = isDark ? '#22d3ee' : '#0284c7';
+    return {
+      role: 'GPON OLT',
+      badge: '[📡 OLT]',
+      type: 'olt',
+      shape: 'rectangle',
+      borderColor: color,
+      svgIcon: getEquipmentSvgUri('olt', color, isDark)
+    };
+  }
+
+  const color = isDark ? '#9ca3af' : '#475569';
+  return {
+    role: 'Equipamento',
+    badge: '[🖥️ NODE]',
+    type: 'generic',
+    shape: 'rectangle',
+    borderColor: color,
+    svgIcon: getEquipmentSvgUri('generic', color, isDark)
+  };
+}
+
+// Get technology icon based on delivery type and trigger
+function getTechIcon(deliveryType, trigger) {
+  if (!deliveryType && !trigger) return '🖥️';
+  
+  const type = (deliveryType || '').toUpperCase();
+  const trig = (trigger || '').toUpperCase();
+  
+  if (type === 'DWD' || type === 'DWDM') return '📡';
+  if (type === 'FIB') return '🔗';
+  if (type === 'RAD') return '📻';
+  if (type === 'CAP') return '⚡';
+  if (type === 'MGT' || type === 'MG') return '🔄';
+  if (trig.includes('BBGR') || trig.includes('BACKBONE')) return '🌐';
+  if (trig.includes('LOOPBACK')) return '🔁';
+  if (trig.includes('CLIENTE') || trig.includes('B2B')) return '👥';
+  if (trig.includes('PTT') || trig.includes('PEERING')) return '🌐';
+  
+  return '🖥️';
+}
+
+// Get node type based on delivery type
+function getNodeTypeFromDelivery(deliveryType, trigger) {
+  const type = (deliveryType || '').toUpperCase();
+  const trig = (trigger || '').toUpperCase();
+  
+  if (type === 'DWD' || type === 'DWDM') return 'dwdm';
+  if (type === 'FIB') return 'fibra';
+  if (type === 'RAD') return 'radio';
+  if (type === 'CAP') return 'capacidade';
+  if (type === 'MGT' || type === 'MG') return 'gerencia';
+  if (trig.includes('BBGR') || trig.includes('BACKBONE')) return 'backbone';
+  
+  return 'source';
+}
+
 function renderMassivasTopology(alarmsText) {
   const records = splitMassivasAlarmLines(alarmsText).map(parseMassivaAlarmLine);
   const graph = fields.massivasTopologyGraph;
   if (!graph || !window.cytoscape) return;
 
-  if (graph._cy) graph._cy.destroy();
-  const links = records.map((record, index) => ({
-    source: record.sourceHost || record.hosts[0] || `origem-${index}`,
-    target: record.interfaceData.remoteEquipment || extractMassivaAffectedHost(record) || `equipamento-b-${index}`,
-    localInterface: record.localInterface || "interface",
-    remotePort: record.interfaceData.remotePort || "porta B",
-  }));
-  const nodes = uniqueValues(links.flatMap((link) => [link.source, link.target])).map((id) => ({
-    data: {
-      id,
-      label: id,
-      kind: links.some((link) => link.target === id) ? "equipment" : "source",
-    },
-  }));
-  const edges = links.map((link, index) => ({
-    data: { id: `link-${index}`, source: link.source, target: link.target, label: `${link.localInterface} -> ${link.remotePort}` },
-  }));
+  // Learn from alarms
+  topologyLearningData.learnFromAlarms(records);
+
+  // If no valid alarm records, clear the graph and show placeholder
+  const validRecords = records.filter(r => r.raw && r.sourceHost);
+  if (!validRecords.length) {
+    if (graph._cy) {
+      try {
+        graph._cy.stop();
+        graph._cy.destroy();
+      } catch (e) {}
+      graph._cy = null;
+    }
+    graph.innerHTML = '';
+    graph._pendingTopology = null;
+    hideTopologyHud();
+    if (graph._resizeObserver) {
+      graph._resizeObserver.disconnect();
+      graph._resizeObserver = null;
+    }
+    return;
+  }
+
+  // Cytoscape needs a container with real dimensions; when the flow/step is
+  // hidden the container reports 0x0 and the graph renders blank.
+  const rect = graph.getBoundingClientRect();
+  if (rect.width < 2 || rect.height < 2) {
+    graph._pendingTopology = alarmsText;
+    
+    if (!graph._resizeObserver) {
+      graph._resizeObserver = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          if (entry.contentRect.width >= 2 && entry.contentRect.height >= 2) {
+            if (graph._pendingTopology !== null && graph._pendingTopology !== undefined && graph._pendingTopology !== "") {
+              renderMassivasTopology(graph._pendingTopology);
+            } else if (graph._cy && typeof graph._cy.destroyed === 'function' && !graph._cy.destroyed()) {
+              graph._cy.resize();
+              graph._cy.fit(null, 48);
+            }
+            break;
+          }
+        }
+      });
+      graph._resizeObserver.observe(graph);
+    }
+    return;
+  }
+  graph._pendingTopology = null;
+  
+  if (graph._resizeObserver) {
+    graph._resizeObserver.disconnect();
+    graph._resizeObserver = null;
+  }
+  
+  // Build links with trunk detection - use description hosts (remote equipment)
+  const linkGroups = new Map();
+  records.forEach((record, index) => {
+    const source = record.sourceHost || record.hosts[0] || `origem-${index}`;
+    const target = record.interfaceData.remoteEquipment || `equipamento-b-${index}`;
+    const localInterface = record.localInterface || "interface";
+    const remotePort = record.interfaceData.remotePort || "porta B";
+    const isTrunk = isTrunkInterface(localInterface);
+    const deliveryType = record.interfaceData.deliveryType || '';
+    const trigger = record.interfaceData.trigger || '';
+    const operator = record.interfaceData.operator || '';
+    const capacity = record.interfaceData.capacity || '';
+    
+    const linkKey = `${source}->${target}`;
+    if (!linkGroups.has(linkKey)) {
+      linkGroups.set(linkKey, {
+        source,
+        target,
+        interfaces: [],
+        isTrunk: false,
+        alarmCount: 0,
+        deliveryType,
+        trigger,
+        operator,
+        capacity
+      });
+    }
+    const group = linkGroups.get(linkKey);
+    group.interfaces.push({ local: localInterface, remote: remotePort });
+    group.alarmCount++;
+    if (isTrunk) group.isTrunk = true;
+    if (deliveryType) group.deliveryType = deliveryType;
+    if (trigger) group.trigger = trigger;
+    if (operator) group.operator = operator;
+    if (capacity) group.capacity = capacity;
+  });
+
+  // Create nodes with technology-based icons and telecom backbone metadata
+  const nodeData = new Map();
+  linkGroups.forEach((group) => {
+    if (!nodeData.has(group.source)) {
+      nodeData.set(group.source, { id: group.source, kind: 'source', interfaces: new Set(), deliveryType: '', trigger: '' });
+    }
+    if (!nodeData.has(group.target)) {
+      nodeData.set(group.target, { id: group.target, kind: 'equipment', interfaces: new Set(), deliveryType: group.deliveryType, trigger: group.trigger });
+    }
+    group.interfaces.forEach(i => {
+      nodeData.get(group.source).interfaces.add(i.local);
+      nodeData.get(group.target).interfaces.add(i.remote);
+    });
+    if (group.deliveryType) {
+      nodeData.get(group.target).deliveryType = group.deliveryType;
+      nodeData.get(group.target).trigger = group.trigger;
+    }
+  });
+
+  const nodes = Array.from(nodeData.values()).map(node => {
+    const info = classifyBackboneHost(node.id, node.deliveryType, node.trigger);
+    const meta = extractHostMetadata(node.id);
+    const cached = cityCache.get(`${meta.sigla.toUpperCase()}_${meta.uf.toUpperCase()}`);
+    const cityText = cached ? `${cached.municipio} - ${cached.uf || meta.uf}` : (meta.uf ? `${meta.sigla} - ${meta.uf}` : meta.sigla);
+    const popText = meta.pop ? ` (${meta.pop})` : '';
+    const label = `${info.badge} ${node.id}\n📍 ${cityText}${popText}`;
+
+    return {
+      data: {
+        id: node.id,
+        label: label,
+        fullHost: node.id,
+        pop: meta.pop,
+        sigla: meta.sigla,
+        uf: meta.uf,
+        city: cached ? cached.municipio : '',
+        role: info.role,
+        kind: node.kind,
+        shape: info.shape,
+        borderColor: info.borderColor,
+        svgIcon: info.svgIcon,
+        interfaces: Array.from(node.interfaces),
+        interfaceCount: node.interfaces.size,
+        deliveryType: node.deliveryType,
+        trigger: node.trigger
+      }
+    };
+  });
+
+  const isDark = document.body && document.body.classList.contains('theme-dark-red');
+
+  // Create edges with telecom backbone styling and interface pairs
+  const edges = Array.from(linkGroups.values()).map((group, index) => {
+    const ifacePair = group.interfaces.length > 0 
+      ? `${group.interfaces[0].local || 'Local'} ⟷ ${group.interfaces[0].remote || 'Remota'}`
+      : 'Enlace';
+    
+    const details = [group.capacity, group.deliveryType, group.operator].filter(Boolean).join(' • ');
+    const capLabel = details ? `[${details}]` : (group.trigger ? `[${group.trigger}]` : '');
+    const edgeLabel = group.isTrunk
+      ? `🔗 TRUNK (${group.interfaces.length} ifaces)\n${ifacePair}`
+      : (capLabel ? `⚡ ${ifacePair}\n${capLabel}` : `↔️ ${ifacePair}`);
+
+    const isAlarm = group.alarmCount > 0;
+    const isDwdm = group.deliveryType === 'DWD' || group.deliveryType === 'DWDM';
+    const lineColor = isAlarm 
+      ? (isDark ? '#ff4966' : '#a83b3b')
+      : (group.isTrunk 
+          ? (isDark ? '#f59e0b' : '#d97706') 
+          : (isDwdm ? (isDark ? '#c084fc' : '#b45309') : (isDark ? '#64748b' : '#0b6f6a')));
+
+    return {
+      data: {
+        id: `link-${index}`,
+        source: group.source,
+        target: group.target,
+        label: edgeLabel,
+        ifacePair: ifacePair,
+        isTrunk: group.isTrunk,
+        alarmCount: group.alarmCount,
+        interfaceCount: group.interfaces.length,
+        deliveryType: group.deliveryType,
+        trigger: group.trigger,
+        operator: group.operator,
+        capacity: group.capacity,
+        lineColor: lineColor
+      }
+    };
+  });
+
+  // If Cy instance exists and is valid, update elements in-place safely without destroying
+  if (graph._cy && typeof graph._cy.destroyed === 'function' && !graph._cy.destroyed()) {
+    try {
+      graph._cy.stop();
+      graph._cy.batch(() => {
+        graph._cy.elements().remove();
+        graph._cy.add([...nodes, ...edges]);
+      });
+      const layout = graph._cy.layout({
+        name: "cose",
+        animate: false,
+        fit: true,
+        padding: 50,
+        nodeRepulsion: 600000,
+        idealEdgeLength: 160,
+        edgeElasticity: 100,
+        gravity: 80
+      });
+      layout.run();
+      resolveNodesCityInfo(graph._cy);
+      graph.style.minHeight = '380px';
+      updateExperimentalTopology();
+      return;
+    } catch (e) {
+      // If in-place update fails, fall through to re-instantiate
+    }
+  }
+
+  // Properly clean up previous instance before creating a new one
+  if (graph._cy) {
+    try {
+      graph._cy.stop();
+      graph._cy.destroy();
+    } catch (e) {}
+    graph._cy = null;
+  }
 
   graph._cy = window.cytoscape({
     container: graph,
     elements: [...nodes, ...edges],
     style: [
-      { selector: "node", style: { "background-color": "#1d6fa5", label: "data(label)", color: "#172b3a", "text-valign": "bottom", "text-margin-y": 8, "font-size": 12, "font-weight": 700, width: 34, height: 34 } },
-      { selector: "node[kind = 'equipment']", style: { "background-color": "#b56b2c", shape: "round-rectangle" } },
-      { selector: "edge", style: { width: 3, "line-color": "#8ca6bb", "target-arrow-color": "#49667d", "target-arrow-shape": "triangle", label: "data(label)", color: "#49667d", "font-size": 10, "text-background-color": "#f5f8fb", "text-background-opacity": 1, "curve-style": "bezier" } },
+      { 
+        selector: "node", 
+        style: { 
+          "background-opacity": 0,
+          "background-image": "data(svgIcon)",
+          "background-width": "100%",
+          "background-height": "100%",
+          "background-fit": "contain",
+          "background-clip": "none",
+          "shape": "rectangle",
+          "border-width": 0,
+          "width": 64,
+          "height": 64,
+          "label": "data(label)",
+          "color": isDark ? "#ffffff" : "#152033",
+          "text-valign": "bottom",
+          "text-margin-y": 8,
+          "font-size": 11,
+          "font-family": '"Inter", system-ui, -apple-system, sans-serif',
+          "font-weight": 700,
+          "text-background-color": isDark ? "#17171b" : "#ffffff",
+          "text-background-opacity": 0.96,
+          "text-background-padding": 5,
+          "text-background-shape": "roundrectangle",
+          "text-border-color": isDark ? "#3b1218" : "#d5deea",
+          "text-border-width": 1,
+          "text-border-opacity": 0.9,
+          "text-wrap": "wrap",
+          "text-max-width": "165px"
+        } 
+      },
+      {
+        selector: "node:selected",
+        style: {
+          "overlay-color": isDark ? "#ff4966" : "#0b6f6a",
+          "overlay-padding": 6,
+          "overlay-opacity": 0.18,
+          "overlay-shape": "roundrectangle"
+        }
+      },
+      { 
+        selector: "edge", 
+        style: { 
+          "width": 2.5,
+          "line-color": "data(lineColor)",
+          "target-arrow-color": "data(lineColor)",
+          "target-arrow-shape": "triangle",
+          "arrow-scale": 1.1,
+          "label": "data(label)",
+          "color": isDark ? "#f8fafc" : "#1e293b",
+          "font-size": 9.5,
+          "font-family": '"Inter", sans-serif',
+          "font-weight": 600,
+          "text-background-color": isDark ? "#17171b" : "#ffffff",
+          "text-background-opacity": 0.95,
+          "text-background-padding": 4,
+          "text-background-shape": "roundrectangle",
+          "text-border-color": isDark ? "#3b1218" : "#d5deea",
+          "text-border-width": 1,
+          "text-border-opacity": 0.9,
+          "curve-style": "bezier",
+          "text-wrap": "wrap",
+          "text-max-width": "140px",
+          "edge-text-rotation": "autorotate"
+        } 
+      },
+      { 
+        selector: "edge[isTrunk = 'true']", 
+        style: { 
+          "width": 4,
+          "line-style": "dashed"
+        } 
+      },
+      {
+        selector: "edge:selected",
+        style: {
+          "width": 4,
+          "overlay-color": isDark ? "#ff4966" : "#0b6f6a",
+          "overlay-padding": 4,
+          "overlay-opacity": 0.18
+        }
+      }
     ],
-    layout: { name: "cose", animate: true, animationDuration: 350, fit: true, padding: 48 },
+    layout: { 
+      name: "cose", 
+      animate: false, 
+      fit: true, 
+      padding: 50,
+      nodeRepulsion: 600000,
+      idealEdgeLength: 160,
+      edgeElasticity: 100,
+      gravity: 80
+    },
+    minZoom: 0.2,
+    maxZoom: 3
   });
+
+  resolveNodesCityInfo(graph._cy);
+
+  // Interactive HUD on node/edge tap
+  graph._cy.on('tap', 'node', function(evt) {
+    const node = evt.target;
+    const d = node.data();
+    const cityLoc = d.city ? `${d.city} - ${d.uf}` : (d.uf ? `${d.sigla} - ${d.uf}` : d.pop || 'NOC');
+    showTopologyHud(`🖥️ <strong>${d.fullHost}</strong> (${d.role}) | 📍 ${cityLoc}${d.pop ? ` (${d.pop})` : ''} | 🔌 Ifaces: ${d.interfaces.join(', ') || 'N/A'}`);
+  });
+
+  graph._cy.on('tap', 'edge', function(evt) {
+    const edge = evt.target;
+    const d = edge.data();
+    const det = [d.capacity, d.deliveryType, d.operator, d.trigger].filter(Boolean).join(' • ');
+    showTopologyHud(`🔗 <strong>${d.source} ⟷ ${d.target}</strong> | ⚡ ${d.ifacePair}${det ? ` | [${det}]` : ''}`);
+  });
+
+  graph._cy.on('tap', function(evt) {
+    if (evt.target === graph._cy) {
+      hideTopologyHud();
+    }
+  });
+
+  // Ensure proper rendering after initialization
+  setTimeout(() => {
+    if (graph._cy && typeof graph._cy.destroyed === 'function' && !graph._cy.destroyed()) {
+      graph._cy.resize();
+      graph._cy.fit(null, 48);
+    }
+  }, 50);
+
+  // Set minimum height to prevent blank/white topology canvas
+  graph.style.minHeight = '380px';
+
+  // Update experimental topology view
+  updateExperimentalTopology();
+}
+
+function getTopologyIcon(kind) {
+  switch(kind) {
+    case 'source': return '🖥️';
+    case 'equipment': return '📡';
+    case 'router': return '🔀';
+    case 'switch': return '🔌';
+    default: return '📦';
+  }
+}
+
+// Update experimental topology view
+function updateExperimentalTopology() {
+  const expTopology = document.getElementById('experimentalTopology');
+  if (!expTopology) return;
+  
+  const data = topologyLearningData.getTopologyData();
+  
+  let html = '<div class="topology-learning-status">';
+  html += `<span>📊 Nodes: ${data.nodes.length}</span>`;
+  html += `<span>🔗 Links: ${data.edges.length}</span>`;
+  html += `<span>📝 Correções: ${topologyLearningData.corrections.length}</span>`;
+  html += '</div>';
+  
+  html += '<div class="topology-nodes-list">';
+  html += '<h4>Nodes Aprendidos</h4>';
+  data.nodes.forEach(node => {
+    html += `<div class="topology-node-item" data-id="${node.id}">`;
+    html += `<span class="node-icon">${getTopologyIcon(node.type)}</span>`;
+    html += `<span class="node-id">${node.id}</span>`;
+    html += `<span class="node-info">Alarmes: ${node.alarmCount} | Ifaces: ${node.interfaces.size}</span>`;
+    html += `<button class="btn-edit-node" onclick="editTopologyNode('${node.id}')">✏️</button>`;
+    html += `<button class="btn-delete-node" onclick="deleteTopologyNode('${node.id}')">🗑️</button>`;
+    html += '</div>';
+  });
+  html += '</div>';
+  
+  html += '<div class="topology-edges-list">';
+  html += '<h4>Links Aprendidos</h4>';
+  data.edges.forEach(edge => {
+    html += `<div class="topology-edge-item" data-id="${edge.id}">`;
+    html += `<span class="edge-icon">${edge.isTrunk ? '🔗' : '🔌'}</span>`;
+    html += `<span class="edge-id">${edge.source} → ${edge.target}</span>`;
+    html += `<span class="edge-info">Alarmes: ${edge.alarmCount} | Ifaces: ${edge.localInterfaces.size}</span>`;
+    html += `<button class="btn-edit-edge" onclick="editTopologyEdge('${edge.id}')">✏️</button>`;
+    html += `<button class="btn-delete-edge" onclick="deleteTopologyEdge('${edge.id}')">🗑️</button>`;
+    html += '</div>';
+  });
+  html += '</div>';
+  
+  expTopology.innerHTML = html;
+}
+
+// Edit topology node
+function editTopologyNode(nodeId) {
+  const node = topologyLearningData.nodes.get(nodeId);
+  if (!node) return;
+  
+  const newId = prompt('Editar ID do node:', node.id);
+  if (newId && newId !== node.id) {
+    topologyLearningData.correctNode(nodeId, { id: newId });
+  }
+  
+  const newType = prompt('Editar tipo (source/equipment/router/switch):', node.type);
+  if (newType) {
+    topologyLearningData.correctNode(nodeId, { type: newType });
+  }
+  
+  // Refresh topology
+  renderMassivasTopology(getValue("massivasDebugAlarms"));
+}
+
+// Delete topology node
+function deleteTopologyNode(nodeId) {
+  if (confirm(`Remover node ${nodeId}?`)) {
+    topologyLearningData.removeNode(nodeId);
+    renderMassivasTopology(getValue("massivasDebugAlarms"));
+  }
+}
+
+// Edit topology edge
+function editTopologyEdge(edgeId) {
+  const edge = topologyLearningData.edges.get(edgeId);
+  if (!edge) return;
+  
+  const newSource = prompt('Editar origem:', edge.source);
+  if (newSource) {
+    topologyLearningData.correctEdge(edgeId, { source: newSource });
+  }
+  
+  const newTarget = prompt('Editar destino:', edge.target);
+  if (newTarget) {
+    topologyLearningData.correctEdge(edgeId, { target: newTarget });
+  }
+  
+  renderMassivasTopology(getValue("massivasDebugAlarms"));
+}
+
+// Delete topology edge
+function deleteTopologyEdge(edgeId) {
+  if (confirm(`Remover link ${edgeId}?`)) {
+    topologyLearningData.removeEdge(edgeId);
+    renderMassivasTopology(getValue("massivasDebugAlarms"));
+  }
 }
 
 function drawMassivasTopology(context, records, top, width, height) {
@@ -1176,10 +2528,14 @@ function summarizeInterfaces(records) {
 
 function parseMassivaAlarmLine(line) {
   const primaryHost = extractPrimaryLineHost(line);
-  const hosts = primaryHost ? [primaryHost] : [];
   const parenthetical = line.match(/::\s*\(([^)]+)\)/);
-  const interfaceDescription = parenthetical ? parenthetical[1] : "";
+  const rawDescMatch = line.match(/::\s*([^:]+?)(?:\s*::|$)/);
+  const interfaceDescription = parenthetical ? parenthetical[1] : (rawDescMatch ? rawDescMatch[1].trim() : "");
   const localInterface = extractLocalAlarmInterface(line);
+  const interfaceData = parseInterfaceDescription(interfaceDescription || line);
+  const hostFromDesc = extractHostFromDescription(interfaceDescription) || extractHostFromDescription(line) || (interfaceData.remoteEquipment && /^BR[.-]/i.test(interfaceData.remoteEquipment) ? interfaceData.remoteEquipment : "");
+  const affectedHost = hostFromDesc || primaryHost || "";
+  const hosts = affectedHost ? [affectedHost] : (primaryHost ? [primaryHost] : []);
 
   return {
     raw: line,
@@ -1187,19 +2543,45 @@ function parseMassivaAlarmLine(line) {
     status: extractMassivasAlarmStatus(line),
     eventId: extractMassivasEventId(line),
     sourceHost: primaryHost,
-    affectedHost: primaryHost,
+    affectedHost: affectedHost,
     hosts,
     localInterface,
     interfaceDescription,
-    interfaceData: parseInterfaceDescription(interfaceDescription || line),
+    interfaceData,
   };
 }
 
 function extractMassivaAffectedHost(record) {
-  const equipment = record.interfaceData.remoteEquipment;
-  const remoteHostPattern = /^BR[.-][A-Z]{5,6}[.-][A-Z0-9]{3,4}[.-][A-Z0-9]{2,3}[.-]\d{1,2}$/i;
-  if (/\bSW\s*\|/i.test(record.raw) && remoteHostPattern.test(equipment)) return equipment.toUpperCase();
-  return record.affectedHost || record.hosts[0] || "";
+  if (!record) return "";
+  const hostFromDesc = extractHostFromDescription(record.interfaceDescription) || extractHostFromDescription(record.raw);
+  if (hostFromDesc) return hostFromDesc.toUpperCase();
+  if (record.interfaceData?.remoteEquipment && /^BR[.-]/i.test(record.interfaceData.remoteEquipment)) {
+    return record.interfaceData.remoteEquipment.toUpperCase();
+  }
+  return record.affectedHost || record.sourceHost || (record.hosts && record.hosts[0]) || "";
+}
+
+function extractHostFromDescription(description) {
+  if (!description) return "";
+  const cleaned = String(description).replace(/^[(\s]+|[)\s]+$/g, "").trim();
+
+  // 1. Try finding segment in underscore-separated description starting with BR. or BR-
+  const segments = cleaned.split("_").map((s) => s.trim());
+  const hostSegment = segments.find((s) => /^BR[.-][A-Z]{2}[.-][A-Z0-9.-]+/i.test(s));
+  if (hostSegment) return hostSegment.toUpperCase();
+
+  // 2. Try regex match for standard BR hostname pattern (with dots or hyphens, 4 to 6 segments)
+  const match = cleaned.match(/\b(BR[.-][A-Z]{2}(?:[.-][A-Z0-9]{2,6}){2,4}[.-]\d{1,2})\b/i);
+  if (match) return match[1].toUpperCase();
+
+  // 3. Try matching between capacity/trigger and remote port
+  const afterCapMatch = cleaned.match(/(?:100G|400G|800G|40G|10G|1G|GE|GIG|GB)_(BR[A-Z0-9.-]+?)_/i);
+  if (afterCapMatch) return afterCapMatch[1].toUpperCase();
+
+  const beforePortMatch = cleaned.match(/_(BR[A-Z0-9.-]+?)_(?:ET|XGE|XG|GE|GI|TE|ETH|PORT|CH|\d+GE)/i);
+  if (beforePortMatch) return beforePortMatch[1].toUpperCase();
+
+  return "";
 }
 
 function splitMassivasAlarmLines(text) {
@@ -1231,7 +2613,7 @@ function extractMassivasEventId(line) {
 }
 
 function extractLocalAlarmInterface(line) {
-  const hostPattern = /(?:BR[.-][A-Z]{2}[.-][A-Z0-9]{3,4}[.-][A-Z0-9]{3,4}[.-][A-Z0-9]{2,3}[.-]\d{1,2})/i;
+  const hostPattern = /(?:BR[.-][A-Z]{2}(?:[.-][A-Z0-9]{2,6}){2,4}[.-]\d{1,2})/i;
   const match = String(line || "").match(new RegExp(`${hostPattern.source}\\s*(?:[↑↓→]\\s*)?([^\\s]+)\\s*::`, "i"));
   return match ? match[1].toUpperCase() : "";
 }
@@ -1249,9 +2631,40 @@ function parseInterfaceDescription(value) {
   const deliveryIndex = deliveryType ? segments.findIndex((segment) => segment === deliveryType || (deliveryType === "DWD" && segment === "DWDM")) : -1;
   const operatorSegment = deliveryIndex >= 0 ? segments[deliveryIndex + 1] || "" : "";
   const operator = operatorSegment ? inferInterfaceOperator([operatorSegment], deliveryType) : inferInterfaceOperator(segments, deliveryType);
-  const remoteEquipmentIndex = capacity ? segments.findIndex((segment) => segment === capacity) + 1 : -1;
-  const remoteEquipment = remoteEquipmentIndex > 0 ? segments[remoteEquipmentIndex] || "" : "";
-  const remotePort = remoteEquipmentIndex > 0 ? segments[remoteEquipmentIndex + 1] || inferRemotePort(value, segments) : inferRemotePort(value, segments);
+  
+  // Extract remote equipment: check if a segment is a BR hostname, or comes after capacity
+  const hostSegment = segments.find((segment) => /^BR[.-][A-Z]{2}[.-][A-Z0-9.-]+/i.test(segment));
+  const capacityIndex = capacity ? segments.findIndex((segment) => segment === capacity) : -1;
+  let remoteEquipment = hostSegment || "";
+  let remotePort = "";
+  if (!remoteEquipment && capacityIndex >= 0 && capacityIndex + 1 < segments.length) {
+    remoteEquipment = segments[capacityIndex + 1] || "";
+  }
+  if (capacityIndex >= 0 && capacityIndex + 2 < segments.length) {
+    remotePort = segments[capacityIndex + 2] || "";
+  }
+  if (!remotePort && hostSegment) {
+    const hostIdx = segments.indexOf(hostSegment);
+    if (hostIdx >= 0 && hostIdx + 1 < segments.length && /^(?:ET|XGE|XG|GE|GI|TE|ETH|PORT|CH|\d+GE)/i.test(segments[hostIdx + 1])) {
+      remotePort = segments[hostIdx + 1];
+    }
+  }
+  
+  // Fallback: try to find remote equipment using regex pattern
+  if (!remoteEquipment || !/^BR[.\-]/i.test(remoteEquipment)) {
+    const remoteMatch = normalizedValue.match(/_(BR[.\-][A-Z]{2}(?:[.\-][A-Z0-9]{2,6}){2,4}[.\-]\d{1,2})_/i);
+    if (remoteMatch) {
+      remoteEquipment = remoteMatch[1];
+    }
+  }
+  
+  // Extract remote port if not found
+  if (!remotePort) {
+    const portMatch = normalizedValue.match(/_[A-Z]{2}\d[\d\/]+(?=_CAP|_DWD|_FIB|_RAD|_MGT|_)/i);
+    if (portMatch) {
+      remotePort = portMatch[0].replace(/^_/, "");
+    }
+  }
   const tokens = normalizedValue
     .toUpperCase()
     .split(/[_.:\s]+/)
@@ -1380,13 +2793,13 @@ function formatMassivasEvidence(records, fallbackLines) {
 }
 
 function extractRecordTime(line) {
-  const full = line.match(/\b20\d{2}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\b/);
+  const full = line.match(/\b20\d{2}-\d{2}-\d{2}\s+\d{2}:\d{2}(?::\d{2})?\b/);
   if (full) return full[0];
 
-  const br = line.match(/\b\d{2}\/\d{2}\/\d{4},?\s+\d{2}:\d{2}:\d{2}\b/);
+  const br = line.match(/\b\d{2}\/\d{2}\/\d{4},?\s+\d{2}:\d{2}(?::\d{2})?\b/);
   if (br) return br[0];
 
-  const hour = line.match(/\b\d{2}:\d{2}:\d{2}\b/);
+  const hour = line.match(/\b\d{2}:\d{2}(?::\d{2})?\b/);
   return hour ? hour[0] : "";
 }
 
@@ -1418,15 +2831,15 @@ function hasSimultaneousImpact(records) {
 }
 
 function timeToSeconds(value) {
-  const dateTime = String(value || "").match(/(20\d{2})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})/);
-  if (dateTime) return Date.UTC(Number(dateTime[1]), Number(dateTime[2]) - 1, Number(dateTime[3]), Number(dateTime[4]), Number(dateTime[5]), Number(dateTime[6]));
+  const dateTime = String(value || "").match(/(20\d{2})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (dateTime) return Date.UTC(Number(dateTime[1]), Number(dateTime[2]) - 1, Number(dateTime[3]), Number(dateTime[4]), Number(dateTime[5]), Number(dateTime[6] || 0));
 
-  const brazilianDateTime = String(value || "").match(/(\d{2})\/(\d{2})\/(20\d{2}),?\s+(\d{2}):(\d{2}):(\d{2})/);
-  if (brazilianDateTime) return Date.UTC(Number(brazilianDateTime[3]), Number(brazilianDateTime[2]) - 1, Number(brazilianDateTime[1]), Number(brazilianDateTime[4]), Number(brazilianDateTime[5]), Number(brazilianDateTime[6]));
+  const brazilianDateTime = String(value || "").match(/(\d{2})\/(\d{2})\/(20\d{2}),?\s+(\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (brazilianDateTime) return Date.UTC(Number(brazilianDateTime[3]), Number(brazilianDateTime[2]) - 1, Number(brazilianDateTime[1]), Number(brazilianDateTime[4]), Number(brazilianDateTime[5]), Number(brazilianDateTime[6] || 0));
 
-  const match = String(value || "").match(/(\d{2}):(\d{2}):(\d{2})/);
+  const match = String(value || "").match(/(\d{2}):(\d{2})(?::(\d{2}))?/);
   if (!match) return null;
-  return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]);
+  return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3] || 0);
 }
 
 function recordsForHost(records, host) {
@@ -1451,6 +2864,7 @@ function currentMassivasStep() {
 
 function showMassivasStep(step) {
   const nextStep = Math.min(Math.max(step, 1), 3);
+  showGlobalProgress((nextStep / 3) * 100, 220);
   document.querySelectorAll(".massivas-step").forEach((item) => {
     const isActive = Number(item.dataset.massivasStep) === nextStep;
     item.classList.toggle("is-active", isActive);
@@ -1462,6 +2876,56 @@ function showMassivasStep(step) {
 
   updateMassivasStepper(nextStep);
   if (fields.massivasStatus) fields.massivasStatus.textContent = `Passo ${nextStep} de 3`;
+  setTimeout(hideGlobalProgress, 250);
+
+  // Re-renderiza a topologia quando o passo 1 (que contém o mapa) fica visível.
+  // O Cytoscape não renderiza corretamente em contêiner oculto (0x0).
+  if (nextStep === 1) {
+    // Use setTimeout to wait for CSS transitions and layout to complete
+    setTimeout(() => {
+      const graph = fields.massivasTopologyGraph;
+      if (!graph) return;
+      
+      // Always try to render the topology with current alarm data
+      const alarmsText = getValue("massivasDebugAlarms");
+      if (alarmsText && alarmsText.trim()) {
+        // Clear any existing Cytoscape instance to ensure fresh render
+        if (graph._cy) {
+          try {
+            graph._cy.destroy();
+          } catch (e) {
+            // Ignore destroy errors
+          }
+          graph._cy = null;
+        }
+        graph.innerHTML = '';
+        graph._pendingTopology = null;
+        
+        // Render with current alarm text
+        renderMassivasTopology(alarmsText);
+      } else {
+        // No alarms text, check if there's pending topology from before
+        if (graph._pendingTopology !== null && graph._pendingTopology !== undefined && graph._pendingTopology !== "") {
+          renderMassivasTopology(graph._pendingTopology);
+        }
+      }
+      
+      // Check if container has valid dimensions after render
+      const rect = graph.getBoundingClientRect();
+      if (rect.width < 2 || rect.height < 2) {
+        // Container still not ready, try again in next frame
+        requestAnimationFrame(() => {
+          const retryRect = graph.getBoundingClientRect();
+          if (retryRect.width >= 2 && retryRect.height >= 2) {
+            if (graph._cy) {
+              graph._cy.resize();
+              graph._cy.fit(null, 48);
+            }
+          }
+        });
+      }
+    }, 50);
+  }
 }
 
 function updateMassivasStepper(step) {
@@ -1483,6 +2947,7 @@ function currentAutoStep() {
 
 function showAutoStep(step) {
   const nextStep = Math.min(Math.max(step, 1), 5);
+  showGlobalProgress((nextStep / 5) * 100, 220);
   document.querySelectorAll(".auto-step").forEach((item) => {
     const isActive = Number(item.dataset.autoStep) === nextStep;
     item.classList.toggle("is-active", isActive);
@@ -1495,6 +2960,7 @@ function showAutoStep(step) {
   updateAutoStepper(nextStep);
   fields.autoStatus.textContent = `Passo ${nextStep} de 5`;
   toggleAutoRecognize();
+  setTimeout(hideGlobalProgress, 250);
 }
 
 function updateAutoStepper(step) {
@@ -2806,13 +4272,14 @@ function extractHosts(text) {
   const matches = new Set();
   extractFullHosts(text).forEach((host) => matches.add(host));
   extractCompactHosts(text).forEach((host) => matches.add(host));
+  extractDescriptionHosts(text).forEach((host) => matches.add(host));
 
   return Array.from(matches).slice(0, 2);
 }
 
 function extractFullHosts(text) {
   const hosts = [];
-  const pattern = /(^|[^A-Z0-9])((?:BR[.-][A-Z]{2}[.-][A-Z0-9]{3,4}[.-][A-Z0-9]{3,4}[.-][A-Z0-9]{2,3}[.-]\d{1,2}))/gi;
+  const pattern = /(^|[^A-Z0-9])((?:BR[.-][A-Z]{2}(?:[.-][A-Z0-9]{2,6}){2,4}[.-]\d{1,2}))/gi;
   let match = pattern.exec(text);
 
   while (match) {
@@ -2858,6 +4325,25 @@ function compactHostToFull(value) {
   }
 
   return "";
+}
+
+function extractDescriptionHosts(text) {
+  const hosts = [];
+  const fromDesc = extractHostFromDescription(text);
+  if (fromDesc) hosts.push(fromDesc);
+
+  const pattern = /(?:100G|400G|800G|40G|10G|1G|GE|GIG|GB)_(BR[A-Z0-9.-]+?)_(?:ET|XGE|XG|GE|GI|TE|ETH|PORT|CH|\d+GE)/gi;
+  const matches = String(text || "").match(pattern);
+  if (matches) {
+    matches.forEach((match) => {
+      const hostMatch = match.match(/(?:100G|400G|800G|40G|10G|1G|GE|GIG|GB)_(BR[A-Z0-9.-]+?)_/i);
+      if (hostMatch && hostMatch[1]) {
+        const host = hostMatch[1].toUpperCase();
+        if (/^BR[A-Z0-9.-]/i.test(host)) hosts.push(host);
+      }
+    });
+  }
+  return uniqueValues(hosts);
 }
 
 function extractFiber(text) {
@@ -3076,7 +4562,8 @@ function groupAlarmLinesByHost(lines) {
   const groups = [];
 
   lines.forEach((line) => {
-    const host = extractPrimaryLineHost(line) || "SEM_HOST";
+    const record = parseMassivaAlarmLine(line);
+    const host = extractMassivaAffectedHost(record) || extractPrimaryLineHost(line) || "SEM_HOST";
     let group = groups.find((item) => item.host === host);
 
     if (!group) {
@@ -3543,71 +5030,6 @@ function previewTitleFor(kind) {
   return titles[kind] || "Prévia";
 }
 
-function downloadOutput() {
-  const carrier = getValue("carrier").toLowerCase();
-  const ticket = getValue("internalTicket") || "noc";
-  const sections = [
-    ["DESCRIÇÃO BDESK", "description"],
-    ["RECONHECER ALARMES", "recognize"],
-    ["ABERTURA NOC", "opening"],
-    ["ATUALIZAÇÃO NOC", "update"],
-    ["E-MAIL / SOLICITAÇÃO", "email"],
-    ["COBRANÇA", "charge"],
-    ["CONTATO", "contact"],
-  ]
-    .map(([title, kind]) => {
-      const text = getGeneratedText(kind);
-      return text ? `### ${title} ###\n${text}` : "";
-    })
-    .filter(Boolean);
-
-  if (!sections.length) {
-    showToast("Complete os campos antes de baixar.", "info");
-    return;
-  }
-
-  const content = sections.join("\n\n");
-  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `carimbo-${carrier}-${ticket}.txt`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-  setStatus("Arquivo .txt gerado.");
-  showToast("Arquivo .txt gerado.");
-}
-
-async function clearForm() {
-  const confirmed = window.confirm("Limpar campos? Os alarmes e campos detectados serão apagados.");
-  if (!confirmed) return;
-
-  [
-    "events",
-    "internalTicket",
-    "externalTicket",
-    "designations",
-    "bdeskTitle",
-    "origin",
-    "destination",
-    "failureTime",
-    "phoneChannel",
-    "hostA",
-    "hostB",
-  ].forEach((id) => setValue(id, ""));
-
-  applyCarrierDefaults(getValue("carrier"), true);
-  setValue("failureType", "INDISPONIBILIDADE");
-  syncSymptomWithFailureType();
-  setValue("fiber", "ONLY");
-  setValue("descriptionMode", "auto");
-  renderOutput();
-  setStatus("Campos limpos.");
-  showToast("Campos limpos.", "success");
-}
-
 function readDefaults() {
   try {
     return JSON.parse(localStorage.getItem("nocGeneratorDefaults") || "{}");
@@ -3660,3 +5082,318 @@ function showToast(message, icon = "success") {
     },
   });
 }
+
+/* ==========================================================================
+   APP VERSIONING & DEEP CACHE PURGE SYSTEM
+   ========================================================================== */
+
+const CURRENT_APP_VERSION = "3.3";
+const APP_BUILD_TIMESTAMP = "2026-09-02";
+
+function initVersionChecker() {
+  const banner = document.getElementById("versionUpdateBanner");
+  if (banner) {
+    banner.hidden = true;
+    banner.classList.remove("is-visible");
+  }
+
+  try {
+    const storedVersion = localStorage.getItem("noc_app_version");
+    const dismissedVersion = localStorage.getItem("noc_update_dismissed_version");
+
+    if (!storedVersion) {
+      // First time initialization: store version, do not display banner
+      localStorage.setItem("noc_app_version", CURRENT_APP_VERSION);
+    } else if (storedVersion !== CURRENT_APP_VERSION && dismissedVersion !== CURRENT_APP_VERSION) {
+      // Stored version is different from current codebase and was not dismissed: display banner
+      showVersionUpdateBanner();
+    } else {
+      // Keep stored version up to date
+      localStorage.setItem("noc_app_version", CURRENT_APP_VERSION);
+    }
+  } catch (e) {
+    console.warn("Version check error:", e);
+  }
+
+  const actionBtn = document.getElementById("versionUpdateActionBtn");
+  if (actionBtn) {
+    actionBtn.addEventListener("click", handleUpdateAndClearCache);
+  }
+
+  const dismissBtn = document.getElementById("versionUpdateDismissBtn");
+  if (dismissBtn) {
+    dismissBtn.addEventListener("click", () => {
+      try {
+        localStorage.setItem("noc_update_dismissed_version", CURRENT_APP_VERSION);
+        localStorage.setItem("noc_app_version", CURRENT_APP_VERSION);
+      } catch (e) {}
+      const b = document.getElementById("versionUpdateBanner");
+      if (b) {
+        b.hidden = true;
+        b.classList.remove("is-visible");
+      }
+    });
+  }
+}
+
+function showVersionUpdateBanner() {
+  const banner = document.getElementById("versionUpdateBanner");
+  if (banner) {
+    banner.hidden = false;
+    banner.classList.add("is-visible");
+    renderIcons();
+  }
+}
+
+async function handleUpdateAndClearCache() {
+  showGlobalProgress(95, 400);
+  showGlobalLoader(t("updatingApp") || "Limpando cache e atualizando...");
+
+  try {
+    // 1. Preserve critical user settings so analyst identity is retained
+    const defaults = readDefaults();
+
+    // 2. Clear cache storage API
+    if ("caches" in window) {
+      try {
+        const cacheKeys = await window.caches.keys();
+        await Promise.all(cacheKeys.map((key) => window.caches.delete(key)));
+      } catch (err) {
+        console.warn("Error clearing caches:", err);
+      }
+    }
+
+    // 3. Unregister service workers if any
+    if ("serviceWorker" in navigator) {
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const registration of registrations) {
+          await registration.unregister();
+        }
+      } catch (err) {
+        console.warn("Error unregistering service workers:", err);
+      }
+    }
+
+    // 4. Clear storage
+    sessionStorage.clear();
+    localStorage.clear();
+
+    // 5. Restore preserved defaults & update version
+    localStorage.setItem("noc_app_version", CURRENT_APP_VERSION);
+    if (defaults && Object.keys(defaults).length > 0) {
+      localStorage.setItem("nocGeneratorDefaults", JSON.stringify(defaults));
+    }
+
+    showToast(t("cacheCleanedReloading") || "Cache limpo! Recarregando...", "success");
+
+    // 6. Hard reload with cache-busting parameter
+    setTimeout(() => {
+      const cleanUrl = window.location.origin + window.location.pathname + "?noc_v=" + Date.now();
+      window.location.href = cleanUrl;
+    }, 600);
+  } catch (error) {
+    console.error("Update error:", error);
+    window.location.reload(true);
+  }
+}
+
+/* ==========================================================================
+   SMOOTH LOADING ANIMATIONS & ANTI-FLICKER SYSTEM
+   ========================================================================== */
+
+let globalProgressTimer = null;
+let globalOverlayStartTime = 0;
+
+function showGlobalProgress(targetPercent = 90, duration = 300) {
+  const barContainer = document.getElementById("appTopProgressBar");
+  const barFill = document.getElementById("appTopProgressFill");
+  if (!barContainer || !barFill) return;
+
+  barContainer.hidden = false;
+  barContainer.style.opacity = "1";
+  barFill.style.transition = `width ${duration}ms cubic-bezier(0.4, 0, 0.2, 1)`;
+  barFill.style.width = `${targetPercent}%`;
+}
+
+function hideGlobalProgress() {
+  const barContainer = document.getElementById("appTopProgressBar");
+  const barFill = document.getElementById("appTopProgressFill");
+  if (!barContainer || !barFill) return;
+
+  barFill.style.width = "100%";
+  setTimeout(() => {
+    barContainer.style.opacity = "0";
+    setTimeout(() => {
+      barContainer.hidden = true;
+      barFill.style.width = "0%";
+    }, 300);
+  }, 150);
+}
+
+function showGlobalLoader(text) {
+  const overlay = document.getElementById("nocLoadingOverlay");
+  const textEl = document.getElementById("nocLoadingText");
+  if (!overlay) return;
+
+  if (textEl && text) {
+    textEl.textContent = text;
+  }
+  globalOverlayStartTime = Date.now();
+  overlay.classList.add("is-visible");
+  showGlobalProgress(85, 400);
+}
+
+function hideGlobalLoader(minDisplayMs = 280) {
+  const overlay = document.getElementById("nocLoadingOverlay");
+  if (!overlay) return;
+
+  const elapsed = Date.now() - globalOverlayStartTime;
+  const remaining = Math.max(0, minDisplayMs - elapsed);
+
+  setTimeout(() => {
+    overlay.classList.remove("is-visible");
+    hideGlobalProgress();
+  }, remaining);
+}
+
+async function withLoading(asyncFn, loadingText = "") {
+  showGlobalLoader(loadingText || t("loading"));
+  try {
+    const result = await asyncFn();
+    return result;
+  } catch (error) {
+    showCustomError({
+      title: t("errorTitle"),
+      message: error.message || t("errorOccurred"),
+      details: error.stack || String(error),
+    });
+    throw error;
+  } finally {
+    hideGlobalLoader(280);
+  }
+}
+
+/* ==========================================================================
+   CUSTOM ERROR HANDLING SYSTEM
+   ========================================================================== */
+
+let pendingRetryAction = null;
+
+function showCustomError({ title, message, details, onRetry } = {}) {
+  const modal = document.getElementById("nocErrorModal");
+  const titleEl = document.getElementById("nocErrorTitle");
+  const msgEl = document.getElementById("nocErrorMessage");
+  const detailsWrap = document.getElementById("nocErrorDetailsWrap");
+  const detailsEl = document.getElementById("nocErrorDetails");
+  const retryBtn = document.getElementById("nocErrorRetryButton");
+
+  if (!modal) {
+    alert(`${title || "Erro"}: ${message || ""}`);
+    return;
+  }
+
+  if (titleEl) titleEl.textContent = title || t("errorTitle") || "Falha na Operação";
+  if (msgEl) msgEl.textContent = message || t("errorOccurred") || "Ocorreu um erro inesperado.";
+
+  if (details && detailsEl && detailsWrap) {
+    detailsEl.textContent = details;
+    detailsWrap.hidden = false;
+  } else if (detailsWrap) {
+    detailsWrap.hidden = true;
+  }
+
+  pendingRetryAction = typeof onRetry === "function" ? onRetry : null;
+  if (retryBtn) {
+    retryBtn.hidden = !pendingRetryAction;
+  }
+
+  renderIcons();
+  try {
+    modal.showModal();
+  } catch (e) {
+    modal.setAttribute("open", "");
+  }
+}
+
+function hideCustomError() {
+  const modal = document.getElementById("nocErrorModal");
+  if (!modal) return;
+  try {
+    modal.close();
+  } catch (e) {
+    modal.removeAttribute("open");
+  }
+}
+
+function initErrorHandling() {
+  const closeBtn = document.getElementById("nocErrorCloseButton");
+  if (closeBtn) closeBtn.addEventListener("click", hideCustomError);
+
+  const retryBtn = document.getElementById("nocErrorRetryButton");
+  if (retryBtn) {
+    retryBtn.addEventListener("click", () => {
+      hideCustomError();
+      if (typeof pendingRetryAction === "function") {
+        const action = pendingRetryAction;
+        pendingRetryAction = null;
+        action();
+      }
+    });
+  }
+
+  const copyBtn = document.getElementById("nocErrorCopyButton");
+  if (copyBtn) {
+    copyBtn.addEventListener("click", async () => {
+      const title = document.getElementById("nocErrorTitle")?.textContent || "";
+      const msg = document.getElementById("nocErrorMessage")?.textContent || "";
+      const details = document.getElementById("nocErrorDetails")?.textContent || "";
+      const textToCopy = `🚨 NOC IP TOOL - RELATÓRIO DE ERRO\nTítulo: ${title}\nMensagem: ${msg}\nDetalhes:\n${details}\nData/Hora: ${new Date().toISOString()}`;
+      try {
+        await navigator.clipboard.writeText(textToCopy);
+        showToast(t("errorCopied") || "Detalhes copiados!");
+      } catch (err) {
+        showToast("Erro ao copiar para clipboard", "info");
+      }
+    });
+  }
+
+  // Global uncaught error listeners
+  window.addEventListener("error", (event) => {
+    if (event.message?.includes("ResizeObserver loop")) return;
+    console.error("Unhandled Error caught:", event.error || event.message);
+  });
+
+  window.addEventListener("unhandledrejection", (event) => {
+    console.error("Unhandled Promise Rejection caught:", event.reason);
+  });
+}
+
+/* ==========================================================================
+   BUTTON MICRO-INTERACTIONS & RIPPLE EFFECT
+   ========================================================================== */
+
+function initButtonMicroInteractions() {
+  document.addEventListener("click", (e) => {
+    const button = e.target.closest("button, .copy-action, .primary-button, .ghost-button, .lang-btn");
+    if (!button) return;
+
+    const rect = button.getBoundingClientRect();
+    const ripple = document.createElement("span");
+    ripple.className = "btn-ripple";
+
+    const diameter = Math.max(rect.width, rect.height);
+    const radius = diameter / 2;
+
+    ripple.style.width = ripple.style.height = `${diameter}px`;
+    ripple.style.left = `${e.clientX - rect.left - radius}px`;
+    ripple.style.top = `${e.clientY - rect.top - radius}px`;
+
+    const existing = button.querySelector(".btn-ripple");
+    if (existing) existing.remove();
+
+    button.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 600);
+  });
+}
+

@@ -1,0 +1,1565 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Topologia Experimental - NOC IP TOOL</title>
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="stylesheet" href="../topology-styles.css">
+  <style>
+    :root {
+      --ink: #152033;
+      --muted: #55657a;
+      --line: #d5deea;
+      --panel: #ffffff;
+      --page: #edf2f8;
+      --primary: #0b6f6a;
+    }
+    body {
+      margin: 0;
+      font-family: "Inter", sans-serif;
+      background: var(--page);
+      color: var(--ink);
+    }
+    .topo-container {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      height: 100vh;
+    }
+    .topo-sidebar {
+      background: var(--panel);
+      border-right: 1px solid var(--line);
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      overflow: hidden;
+    }
+    .topo-sidebar-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    .topo-sidebar-header h1 {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 18px;
+      margin: 0 0 8px;
+    }
+    .topo-sidebar-header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .topo-sidebar-content {
+      overflow-y: auto;
+      padding: 16px;
+    }
+    .topo-sidebar-footer {
+      padding: 16px;
+      border-top: 1px solid var(--line);
+      display: flex;
+      gap: 8px;
+    }
+    .topo-main {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      overflow: hidden;
+    }
+    .topo-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      flex-wrap: wrap;
+    }
+    .topo-toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding-right: 12px;
+      border-right: 1px solid var(--line);
+    }
+    .topo-toolbar-group:last-child {
+      border-right: 0;
+    }
+    .topo-toolbar-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-right: 4px;
+    }
+    .topo-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 32px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 150ms ease;
+    }
+    .topo-btn:hover {
+      border-color: var(--primary);
+      background: #eef9f7;
+    }
+    .topo-btn.primary {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #ffffff;
+    }
+    .topo-btn.primary:hover {
+      background: #07524f;
+    }
+    .topo-btn.icon {
+      width: 32px;
+      padding: 0;
+    }
+    .topo-canvas-container {
+      position: relative;
+      overflow: hidden;
+      background: var(--field);
+      min-height: 600px;
+    }
+    #topoCanvas {
+      width: 100%;
+      height: 100%;
+    }
+    .topo-empty {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-size: 14px;
+      text-align: center;
+      padding: 24px;
+    }
+    .topo-empty-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin: 0 0 12px;
+    }
+    .topo-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .topo-stat {
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #f8fafc;
+      text-align: center;
+    }
+    .topo-stat-value {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--primary);
+    }
+    .topo-stat-label {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .topo-list {
+      display: grid;
+      gap: 6px;
+    }
+    .topo-list-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+      font-size: 11px;
+    }
+    .topo-list-item-icon {
+      font-size: 16px;
+      width: 24px;
+      text-align: center;
+    }
+    .topo-list-item-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .topo-list-item-title {
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .topo-list-item-sub {
+      color: var(--muted);
+      font-size: 10px;
+    }
+    .topo-list-item-actions {
+      display: flex;
+      gap: 4px;
+    }
+    .topo-list-item-actions button {
+      width: 24px;
+      height: 24px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #ffffff;
+      cursor: pointer;
+      font-size: 11px;
+      display: grid;
+      place-items: center;
+    }
+    .topo-list-item-actions button:hover {
+      border-color: var(--primary);
+    }
+    .topo-legend {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+    .topo-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+    }
+    .topo-legend-icon {
+      width: 20px;
+      text-align: center;
+      font-size: 14px;
+    }
+    .topo-input-area {
+      margin-bottom: 16px;
+    }
+    .topo-input-area textarea {
+      width: 100%;
+      min-height: 120px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 11px;
+      resize: vertical;
+    }
+    .topo-input-area textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(11, 111, 106, 0.12);
+    }
+  </style>
+</head>
+<body>
+  <div class="topo-container">
+    <aside class="topo-sidebar">
+      <div class="topo-sidebar-header">
+        <h1>🧪 Topologia Experimental</h1>
+        <p>Auto-aprendizado e edição manual da topologia de rede</p>
+      </div>
+      <div class="topo-sidebar-content">
+        <div class="topo-stats">
+          <div class="topo-stat">
+            <div class="topo-stat-value" id="statNodes">0</div>
+            <div class="topo-stat-label">Nodes</div>
+          </div>
+          <div class="topo-stat">
+            <div class="topo-stat-value" id="statLinks">0</div>
+            <div class="topo-stat-label">Links</div>
+          </div>
+          <div class="topo-stat">
+            <div class="topo-stat-value" id="statCorrections">0</div>
+            <div class="topo-stat-label">Correções</div>
+          </div>
+        </div>
+
+        <div class="topo-input-area">
+          <p class="section-title">Colar Alarmes</p>
+          <textarea id="alarmInput" placeholder="Cole os alarmes aqui para extrair a topologia...
+
+Exemplo:
+2026-08-30 10:00:00 BR-RJ-RJO-CTL-TP-02 XGE0/0/1:: IFBBGR_ULK_10G_BR-SP-SPO-CTL-TP-04_XGE0/0/2_CAP_MOBWIRE
+2026-08-30 10:00:01 BR-RJ-RJO-CTL-TP-02 Eth-Trunk1:: IFBBGR_AETK1_40G_BR-SP-SPO-CTL-TP-04_Eth-Trunk2_DWD_TIM"></textarea>
+        </div>
+
+        <p class="section-title">Legenda</p>
+        <div class="topo-legend">
+          <div class="topo-legend-item"><span class="topo-legend-icon">🏢</span> Backbone</div>
+          <div class="topo-legend-item"><span class="topo-legend-icon">📡</span> DWDM</div>
+          <div class="topo-legend-item"><span class="topo-legend-icon">🔗</span> Fibra</div>
+          <div class="topo-legend-item"><span class="topo-legend-icon">📻</span> Rádio</div>
+          <div class="topo-legend-item"><span class="topo-legend-icon">⚡</span> Capacidade</div>
+          <div class="topo-legend-item"><span class="topo-legend-icon">🔄</span> Gerência</div>
+          <div class="topo-legend-item"><span class="topo-legend-icon">🖥️</span> Host/Source</div>
+          <div class="topo-legend-item"><span class="topo-legend-icon">🔀</span> Equipamento B</div>
+        </div>
+
+        <p class="section-title">Nodes Aprendidos</p>
+        <div class="topo-list" id="nodesList"></div>
+
+        <p class="section-title" style="margin-top: 16px;">Links Aprendidos</p>
+        <div class="topo-list" id="linksList"></div>
+      </div>
+      <div class="topo-sidebar-footer">
+        <button class="topo-btn" onclick="clearTopology()">🗑️ Limpar</button>
+        <button class="topo-btn primary" onclick="exportTopology()">📤 Exportar</button>
+      </div>
+    </aside>
+    <main class="topo-main">
+      <div class="topo-toolbar">
+        <div class="topo-toolbar-group">
+          <span class="topo-toolbar-label">Zoom</span>
+          <button class="topo-btn icon" onclick="topoZoomIn()">+</button>
+          <button class="topo-btn icon" onclick="topoZoomOut()">−</button>
+          <button class="topo-btn" onclick="topoZoomFit()">⊡ Fit</button>
+        </div>
+        <div class="topo-toolbar-group">
+          <span class="topo-toolbar-label">Layout</span>
+          <button class="topo-btn" onclick="topoLayoutCose()">🌐 Cose</button>
+          <button class="topo-btn" onclick="topoLayoutCircle()">⭕ Circle</button>
+          <button class="topo-btn" onclick="topoLayoutGrid()">⊞ Grid</button>
+        </div>
+        <div class="topo-toolbar-group">
+          <span class="topo-toolbar-label">Ações</span>
+          <button class="topo-btn" onclick="topoCenter()">⊕ Centralizar</button>
+          <button class="topo-btn" onclick="topoReload()">🔄 Recarregar</button>
+        </div>
+      </div>
+      <div class="topo-canvas-container">
+        <div id="topoCanvas"></div>
+        <div class="topo-empty" id="topoEmpty">
+          <div>
+            <div class="topo-empty-icon">🗺️</div>
+            <p>Cole os alarmes à esquerda para visualizar a topologia</p>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/cytoscape@3.30.4/dist/cytoscape.min.js"></script>
+  <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
+  <script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+  <script>
+    let cy = null;
+    let topologyData = {
+      nodes: new Map(),
+      edges: new Map(),
+      corrections: []
+    };
+
+    function getEquipmentSvgUri(type, color = '#0b6f6a', isDark = false) {
+      let svg = '';
+      switch (type) {
+        case 'pe':
+          // Cisco 3D Router (Isometric Cylinder / Puck)
+          // Symmetrical 2:1 ellipse cx=32, cy=22, rx=24, ry=12 with 4 orthogonally aligned arrows
+          svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+            <defs>
+              <linearGradient id="pe_top_t_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="${isDark ? '#ef4444' : '#14b8a6'}"/>
+                <stop offset="100%" stop-color="${isDark ? '#b91c1c' : '#0d9488'}"/>
+              </linearGradient>
+              <linearGradient id="pe_side_t_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="${isDark ? '#7f1d1d' : '#0f766e'}"/>
+                <stop offset="50%" stop-color="${isDark ? '#991b1b' : '#115e59'}"/>
+                <stop offset="100%" stop-color="${isDark ? '#450a0a' : '#042f2e'}"/>
+              </linearGradient>
+              <filter id="pe_sh_t_${isDark ? 'd' : 'l'}" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="4" stdDeviation="2.5" flood-color="#000000" flood-opacity="${isDark ? '0.45' : '0.2'}"/>
+              </filter>
+            </defs>
+            <g filter="url(#pe_sh_t_${isDark ? 'd' : 'l'})">
+              <path d="M8 22 v16 c0 6.63 10.75 12 24 12 s24 -5.37 24 -12 v-16 Z" fill="url(#pe_side_t_${isDark ? 'd' : 'l'})"/>
+              <path d="M8 38 c0 6.63 10.75 12 24 12 s24 -5.37 24 -12" fill="none" stroke="${isDark ? '#f87171' : '#2dd4bf'}" stroke-width="0.8" opacity="0.6"/>
+              <ellipse cx="32" cy="22" rx="24" ry="12" fill="url(#pe_top_t_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#fca5a5' : '#5eead4'}" stroke-width="1.5"/>
+              <path d="M14 22 h10 M20 19 l4 3 l-4 3" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M50 22 h-10 M44 19 l-4 3 l4 3" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M32 18 v-6 M29 15 l3 -3 l3 3" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M32 26 v6 M29 29 l3 3 l3 -3" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="32" cy="22" r="2.2" fill="#ffffff"/>
+            </g>
+          </svg>`;
+          break;
+
+        case 'core':
+          // Cisco 3D Core Router (Hexagonal Isometric Chassis)
+          // Exact 30 deg isometric geometry (32,8 -> 56,20 -> 32,32 -> 8,20)
+          svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+            <defs>
+              <linearGradient id="core_top_t_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="${isDark ? '#c084fc' : '#3b82f6'}"/>
+                <stop offset="100%" stop-color="${isDark ? '#9333ea' : '#1d4ed8'}"/>
+              </linearGradient>
+              <linearGradient id="core_left_t_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="${isDark ? '#7e22ce' : '#1e40af'}"/>
+                <stop offset="100%" stop-color="${isDark ? '#3b0764' : '#0f172a'}"/>
+              </linearGradient>
+              <linearGradient id="core_right_t_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="${isDark ? '#6b21a8' : '#1e3a8a'}"/>
+                <stop offset="100%" stop-color="${isDark ? '#2e1065' : '#090d16'}"/>
+              </linearGradient>
+              <filter id="core_sh_t_${isDark ? 'd' : 'l'}" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="4" stdDeviation="2.5" flood-color="#000000" flood-opacity="${isDark ? '0.45' : '0.25'}"/>
+              </filter>
+            </defs>
+            <g filter="url(#core_sh_t_${isDark ? 'd' : 'l'})">
+              <polygon points="8,20 32,32 32,50 8,38" fill="url(#core_left_t_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#a855f7' : '#1e40af'}" stroke-width="0.8"/>
+              <polygon points="56,20 32,32 32,50 56,38" fill="url(#core_right_t_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#9333ea' : '#1e3a8a'}" stroke-width="0.8"/>
+              <polygon points="32,8 56,20 32,32 8,20" fill="url(#core_top_t_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#e9d5ff' : '#93c5fd'}" stroke-width="1.5"/>
+              <ellipse cx="32" cy="20" rx="9" ry="4.5" fill="none" stroke="#ffffff" stroke-width="1.5"/>
+              <path d="M20 20 h24 M32 14 v12" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/>
+              <circle cx="32" cy="20" r="2" fill="#ffffff"/>
+              <circle cx="16" cy="38" r="1.3" fill="${isDark ? '#e9d5ff' : '#93c5fd'}"/>
+              <circle cx="22" cy="41" r="1.3" fill="${isDark ? '#e9d5ff' : '#93c5fd'}"/>
+              <circle cx="28" cy="44" r="1.3" fill="${isDark ? '#e9d5ff' : '#93c5fd'}"/>
+            </g>
+          </svg>`;
+          break;
+
+        case 'switch':
+          // Cisco 3D Switch (Low-Profile Isometric Box)
+          // Top face: (32,10 -> 56,22 -> 32,34 -> 8,22)
+          svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+            <defs>
+              <linearGradient id="sw_top_t_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="${isDark ? '#34d399' : '#10b981'}"/>
+                <stop offset="100%" stop-color="${isDark ? '#059669' : '#047857'}"/>
+              </linearGradient>
+              <linearGradient id="sw_left_t_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="${isDark ? '#047857' : '#065f46'}"/>
+                <stop offset="100%" stop-color="${isDark ? '#022c22' : '#022c22'}"/>
+              </linearGradient>
+              <linearGradient id="sw_right_t_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="${isDark ? '#065f46' : '#047857'}"/>
+                <stop offset="100%" stop-color="${isDark ? '#022c22' : '#064e3b'}"/>
+              </linearGradient>
+              <filter id="sw_sh_t_${isDark ? 'd' : 'l'}" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="4" stdDeviation="2.5" flood-color="#000000" flood-opacity="${isDark ? '0.45' : '0.25'}"/>
+              </filter>
+            </defs>
+            <g filter="url(#sw_sh_t_${isDark ? 'd' : 'l'})">
+              <polygon points="8,22 32,34 32,46 8,34" fill="url(#sw_left_t_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#10b981' : '#065f46'}" stroke-width="0.8"/>
+              <polygon points="56,22 32,34 32,46 56,34" fill="url(#sw_right_t_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#059669' : '#047857'}" stroke-width="0.8"/>
+              <polygon points="32,10 56,22 32,34 8,22" fill="url(#sw_top_t_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#a7f3d0' : '#6ee7b7'}" stroke-width="1.5"/>
+              <path d="M22 17 h18 M36 14 l4 3 l-4 3" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M42 27 h-18 M28 24 l-4 3 l4 3" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="12" y="34.5" width="3.5" height="3" rx="0.5" fill="#a7f3d0"/>
+              <rect x="18" y="37.5" width="3.5" height="3" rx="0.5" fill="#a7f3d0"/>
+              <rect x="24" y="40.5" width="3.5" height="3" rx="0.5" fill="#a7f3d0"/>
+            </g>
+          </svg>`;
+          break;
+
+        case 'dwdm':
+          // Cisco 3D Optical / DWDM Transponder
+          svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+            <defs>
+              <linearGradient id="dwdm_top_t_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="${isDark ? '#fbbf24' : '#f59e0b'}"/>
+                <stop offset="100%" stop-color="${isDark ? '#d97706' : '#b45309'}"/>
+              </linearGradient>
+              <linearGradient id="dwdm_left_t_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="${isDark ? '#92400e' : '#92400e'}"/>
+                <stop offset="100%" stop-color="${isDark ? '#451a03' : '#451a03'}"/>
+              </linearGradient>
+              <linearGradient id="dwdm_right_t_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="${isDark ? '#78350f' : '#78350f'}"/>
+                <stop offset="100%" stop-color="${isDark ? '#451a03' : '#451a03'}"/>
+              </linearGradient>
+              <filter id="dwdm_sh_t_${isDark ? 'd' : 'l'}" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="4" stdDeviation="2.5" flood-color="#000000" flood-opacity="${isDark ? '0.45' : '0.25'}"/>
+              </filter>
+            </defs>
+            <g filter="url(#dwdm_sh_t_${isDark ? 'd' : 'l'})">
+              <polygon points="8,22 32,34 32,46 8,34" fill="url(#dwdm_left_t_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#fbbf24' : '#78350f'}" stroke-width="0.8"/>
+              <polygon points="56,22 32,34 32,46 56,34" fill="url(#dwdm_right_t_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#d97706' : '#78350f'}" stroke-width="0.8"/>
+              <polygon points="32,10 56,22 32,34 8,22" fill="url(#dwdm_top_t_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#fef08a' : '#fde68a'}" stroke-width="1.5"/>
+              <path d="M16 22 c4 -4 8 -4 16 0 s12 4 16 0" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+              <circle cx="16" cy="22" r="2" fill="#ffffff"/>
+              <circle cx="32" cy="22" r="2" fill="#ffffff"/>
+              <circle cx="48" cy="22" r="2" fill="#ffffff"/>
+            </g>
+          </svg>`;
+          break;
+
+        case 'olt':
+          // GPON OLT Optical Terminal
+          svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+            <defs>
+              <linearGradient id="olt_top_t_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="${isDark ? '#38bdf8' : '#0284c7'}"/>
+                <stop offset="100%" stop-color="${isDark ? '#0284c7' : '#0369a1'}"/>
+              </linearGradient>
+              <linearGradient id="olt_left_t_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="${isDark ? '#075985' : '#075985'}"/>
+                <stop offset="100%" stop-color="${isDark ? '#082f49' : '#082f49'}"/>
+              </linearGradient>
+              <linearGradient id="olt_right_t_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="${isDark ? '#0c4a6e' : '#0c4a6e'}"/>
+                <stop offset="100%" stop-color="${isDark ? '#082f49' : '#082f49'}"/>
+              </linearGradient>
+              <filter id="olt_sh_t_${isDark ? 'd' : 'l'}" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="4" stdDeviation="2.5" flood-color="#000000" flood-opacity="${isDark ? '0.45' : '0.25'}"/>
+              </filter>
+            </defs>
+            <g filter="url(#olt_sh_t_${isDark ? 'd' : 'l'})">
+              <polygon points="8,20 32,32 32,48 8,36" fill="url(#olt_left_t_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#38bdf8' : '#0369a1'}" stroke-width="0.8"/>
+              <polygon points="56,20 32,32 32,48 56,36" fill="url(#olt_right_t_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#0284c7' : '#0369a1'}" stroke-width="0.8"/>
+              <polygon points="32,8 56,20 32,32 8,20" fill="url(#olt_top_t_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#bae6fd' : '#7dd3fc'}" stroke-width="1.5"/>
+              <path d="M32 14 v6 M32 20 l-10 4 M32 20 l10 4" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="32" cy="14" r="2" fill="#ffffff"/>
+              <circle cx="22" cy="24" r="1.8" fill="#ffffff"/>
+              <circle cx="42" cy="24" r="1.8" fill="#ffffff"/>
+            </g>
+          </svg>`;
+          break;
+
+        default:
+          // Generic Host / Server (3D Blade Chassis)
+          svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+            <defs>
+              <linearGradient id="srv_top_t_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="${isDark ? '#94a3b8' : '#64748b'}"/>
+                <stop offset="100%" stop-color="${isDark ? '#64748b' : '#475569'}"/>
+              </linearGradient>
+              <linearGradient id="srv_front_t_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="${isDark ? '#334155' : '#334155'}"/>
+                <stop offset="100%" stop-color="${isDark ? '#0f172a' : '#0f172a'}"/>
+              </linearGradient>
+              <linearGradient id="srv_side_t_${isDark ? 'd' : 'l'}" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="${isDark ? '#1e293b' : '#1e293b'}"/>
+                <stop offset="100%" stop-color="${isDark ? '#0f172a' : '#0f172a'}"/>
+              </linearGradient>
+              <filter id="srv_sh_t_${isDark ? 'd' : 'l'}" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="4" stdDeviation="2.5" flood-color="#000000" flood-opacity="${isDark ? '0.45' : '0.25'}"/>
+              </filter>
+            </defs>
+            <g filter="url(#srv_sh_t_${isDark ? 'd' : 'l'})">
+              <polygon points="10,22 32,32 32,50 10,40" fill="url(#srv_front_t_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#94a3b8' : '#475569'}" stroke-width="0.8"/>
+              <polygon points="54,22 32,32 32,50 54,40" fill="url(#srv_side_t_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#64748b' : '#475569'}" stroke-width="0.8"/>
+              <polygon points="32,10 54,22 32,32 10,22" fill="url(#srv_top_t_${isDark ? 'd' : 'l'})" stroke="${isDark ? '#e2e8f0' : '#cbd5e1'}" stroke-width="1.5"/>
+              <line x1="14" y1="31" x2="28" y2="37" stroke="#94a3b8" stroke-width="1.2"/>
+              <line x1="14" y1="36" x2="28" y2="42" stroke="#94a3b8" stroke-width="1.2"/>
+              <line x1="14" y1="41" x2="28" y2="47" stroke="#94a3b8" stroke-width="1.2"/>
+              <circle cx="15" cy="27" r="1.2" fill="#38bdf8"/>
+              <circle cx="18" cy="28.3" r="1.2" fill="#22c55e"/>
+            </g>
+          </svg>`;
+          break;
+      }
+      return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+    }
+
+    const cityCache = new Map();
+
+    function extractHostMetadata(hostname) {
+      const normalized = String(hostname || '').toUpperCase().replace(/[._]/g, '-');
+      const parts = normalized.split('-').filter(Boolean);
+      
+      if (parts.length >= 4) {
+        let uf = '';
+        let sigla = '';
+        let pop = '';
+        
+        if (parts[0] === 'BR' && parts.length >= 4) {
+          uf = parts[1];
+          sigla = parts[2];
+          pop = parts[3];
+        } else if (parts.length >= 3 && /^[A-Z]{2}$/.test(parts[0])) {
+          uf = parts[0];
+          sigla = parts[1];
+          pop = parts[2];
+        } else {
+          sigla = parts[0];
+          pop = parts[1];
+        }
+        
+        return { uf, sigla, pop };
+      }
+      
+      return { uf: '', sigla: String(hostname || '').slice(0, 3).toUpperCase(), pop: '' };
+    }
+
+    function parseCityResponse(html, expectedUf = '') {
+      if (!html || typeof html !== 'string') return null;
+      
+      const entries = html.split(/<hr\s*\/?>/i).map(e => e.trim()).filter(Boolean);
+      const parsedList = [];
+      
+      for (const entry of entries) {
+        const ufMatch = entry.match(/<b>\s*UF:\s*<\/b>\s*([A-Z]{2})/i) || entry.match(/UF:\s*([A-Z]{2})/i);
+        const munMatch = entry.match(/<b>\s*Municipio:\s*<\/b>\s*([^<]+)/i) || entry.match(/Municipio:\s*([^<]+)/i);
+        const locMatch = entry.match(/<b>\s*Localidade:\s*<\/b>\s*([^<]+)/i);
+        const regMatch = entry.match(/<b>\s*Regi[ãa]o:\s*<\/b>\s*([^|<]+)/i);
+        const cnlMatch = entry.match(/<b>\s*CNL:\s*<\/b>\s*([A-Z0-9]+)/i);
+
+        const uf = ufMatch ? ufMatch[1].trim().toUpperCase() : '';
+        const municipio = munMatch ? munMatch[1].trim() : (locMatch ? locMatch[1].trim() : '');
+        const localidade = locMatch ? locMatch[1].trim() : municipio;
+        const regiao = regMatch ? regMatch[1].trim() : '';
+        const cnl = cnlMatch ? cnlMatch[1].trim().toUpperCase() : '';
+
+        if (municipio || uf) {
+          parsedList.push({ uf, municipio, localidade, regiao, cnl });
+        }
+      }
+
+      if (parsedList.length === 0) return null;
+
+      if (expectedUf) {
+        const match = parsedList.find(p => p.uf === expectedUf.toUpperCase());
+        if (match) return match;
+      }
+
+      return parsedList[0];
+    }
+
+    const TELECOM_CNL_MAP = {
+      // Capitais (UF)
+      'BSA': { municipio: 'Brasília', uf: 'DF' },
+      'BSB': { municipio: 'Brasília', uf: 'DF' },
+      'SPO': { municipio: 'São Paulo', uf: 'SP' },
+      'SAO': { municipio: 'São Paulo', uf: 'SP' },
+      'RJO': { municipio: 'Rio de Janeiro', uf: 'RJ' },
+      'RIO': { municipio: 'Rio de Janeiro', uf: 'RJ' },
+      'BHZ': { municipio: 'Belo Horizonte', uf: 'MG' },
+      'BHO': { municipio: 'Belo Horizonte', uf: 'MG' },
+      'CTA': { municipio: 'Curitiba', uf: 'PR' },
+      'CTB': { municipio: 'Curitiba', uf: 'PR' },
+      'CUR': { municipio: 'Curitiba', uf: 'PR' },
+      'POA': { municipio: 'Porto Alegre', uf: 'RS' },
+      'PAG': { municipio: 'Porto Alegre', uf: 'RS' },
+      'SSA': { municipio: 'Salvador', uf: 'BA' },
+      'SLV': { municipio: 'Salvador', uf: 'BA' },
+      'REC': { municipio: 'Recife', uf: 'PE' },
+      'RCE': { municipio: 'Recife', uf: 'PE' },
+      'FOR': { municipio: 'Fortaleza', uf: 'CE' },
+      'FTZ': { municipio: 'Fortaleza', uf: 'CE' },
+      'BLM': { municipio: 'Belém', uf: 'PA' },
+      'BEL': { municipio: 'Belém', uf: 'PA' },
+      'MAO': { municipio: 'Manaus', uf: 'AM' },
+      'MAN': { municipio: 'Manaus', uf: 'AM' },
+      'GYN': { municipio: 'Goiânia', uf: 'GO' },
+      'GOI': { municipio: 'Goiânia', uf: 'GO' },
+      'CBA': { municipio: 'Cuiabá', uf: 'MT' },
+      'CUI': { municipio: 'Cuiabá', uf: 'MT' },
+      'CGB': { municipio: 'Campo Grande', uf: 'MS' },
+      'CGR': { municipio: 'Campo Grande', uf: 'MS' },
+      'VIX': { municipio: 'Vitória', uf: 'ES' },
+      'VIT': { municipio: 'Vitória', uf: 'ES' },
+      'FLN': { municipio: 'Florianópolis', uf: 'SC' },
+      'FLO': { municipio: 'Florianópolis', uf: 'SC' },
+      'NAT': { municipio: 'Natal', uf: 'RN' },
+      'NTL': { municipio: 'Natal', uf: 'RN' },
+      'MCZ': { municipio: 'Maceió', uf: 'AL' },
+      'MAC': { municipio: 'Maceió', uf: 'AL' },
+      'JPA': { municipio: 'João Pessoa', uf: 'PB' },
+      'JPO': { municipio: 'João Pessoa', uf: 'PB' },
+      'THE': { municipio: 'Teresina', uf: 'PI' },
+      'TER': { municipio: 'Teresina', uf: 'PI' },
+      'SLZ': { municipio: 'São Luís', uf: 'MA' },
+      'SLS': { municipio: 'São Luís', uf: 'MA' },
+      'AJU': { municipio: 'Aracaju', uf: 'SE' },
+      'ARC': { municipio: 'Aracaju', uf: 'SE' },
+      'PVH': { municipio: 'Porto Velho', uf: 'RO' },
+      'PVO': { municipio: 'Porto Velho', uf: 'RO' },
+      'RBR': { municipio: 'Rio Branco', uf: 'AC' },
+      'RBC': { municipio: 'Rio Branco', uf: 'AC' },
+      'MCP': { municipio: 'Macapá', uf: 'AP' },
+      'BVB': { municipio: 'Boa Vista', uf: 'RR' },
+      'BOA': { municipio: 'Boa Vista', uf: 'RR' },
+      'PMW': { municipio: 'Palmas', uf: 'TO' },
+      'PLS': { municipio: 'Palmas', uf: 'TO' },
+
+      // Polos Regionais e Grandes Cidades
+      'CPS': { municipio: 'Campinas', uf: 'SP' },
+      'SJC': { municipio: 'São José dos Campos', uf: 'SP' },
+      'STO': { municipio: 'Santos', uf: 'SP' },
+      'SAN': { municipio: 'Santos', uf: 'SP' },
+      'RIB': { municipio: 'Ribeirão Preto', uf: 'SP' },
+      'RBP': { municipio: 'Ribeirão Preto', uf: 'SP' },
+      'SOR': { municipio: 'Sorocaba', uf: 'SP' },
+      'BAU': { municipio: 'Bauru', uf: 'SP' },
+      'SDR': { municipio: 'Santo André', uf: 'SP' },
+      'SBC': { municipio: 'São Bernardo do Campo', uf: 'SP' },
+      'OSA': { municipio: 'Osasco', uf: 'SP' },
+      'GRU': { municipio: 'Guarulhos', uf: 'SP' },
+      'JDI': { municipio: 'Jundiaí', uf: 'SP' },
+      'PIR': { municipio: 'Piracicaba', uf: 'SP' },
+      'SCA': { municipio: 'São Carlos', uf: 'SP' },
+      'PRU': { municipio: 'Presidente Prudente', uf: 'SP' },
+      'SJP': { municipio: 'São José do Rio Preto', uf: 'SP' },
+      'FRA': { municipio: 'Franca', uf: 'SP' },
+      'TAU': { municipio: 'Taubaté', uf: 'SP' },
+      'BAR': { municipio: 'Barueri', uf: 'SP' },
+      'ALF': { municipio: 'Alphaville', uf: 'SP' },
+      
+      'UDI': { municipio: 'Uberlândia', uf: 'MG' },
+      'UBA': { municipio: 'Uberaba', uf: 'MG' },
+      'JDR': { municipio: 'Juiz de Fora', uf: 'MG' },
+      'JFA': { municipio: 'Juiz de Fora', uf: 'MG' },
+      'MOC': { municipio: 'Montes Claros', uf: 'MG' },
+      'GVL': { municipio: 'Governador Valadares', uf: 'MG' },
+      'IPA': { municipio: 'Ipatinga', uf: 'MG' },
+      'DIV': { municipio: 'Divinópolis', uf: 'MG' },
+      'POC': { municipio: 'Poços de Caldas', uf: 'MG' },
+      'VAG': { municipio: 'Varginha', uf: 'MG' },
+      'PTC': { municipio: 'Patos de Minas', uf: 'MG' },
+      'CON': { municipio: 'Contagem', uf: 'MG' },
+      'BET': { municipio: 'Betim', uf: 'MG' },
+      
+      'NTR': { municipio: 'Niterói', uf: 'RJ' },
+      'NIT': { municipio: 'Niterói', uf: 'RJ' },
+      'DCX': { municipio: 'Duque de Caxias', uf: 'RJ' },
+      'SGO': { municipio: 'São Gonçalo', uf: 'RJ' },
+      'VOL': { municipio: 'Volta Redonda', uf: 'RJ' },
+      'VRD': { municipio: 'Volta Redonda', uf: 'RJ' },
+      'CFB': { municipio: 'Cabo Frio', uf: 'RJ' },
+      'CMP': { municipio: 'Campos dos Goytacazes', uf: 'RJ' },
+      'NOF': { municipio: 'Nova Friburgo', uf: 'RJ' },
+      'NIG': { municipio: 'Nova Iguaçu', uf: 'RJ' },
+      
+      'LON': { municipio: 'Londrina', uf: 'PR' },
+      'LDA': { municipio: 'Londrina', uf: 'PR' },
+      'MGA': { municipio: 'Maringá', uf: 'PR' },
+      'MRG': { municipio: 'Maringá', uf: 'PR' },
+      'CSC': { municipio: 'Cascavel', uf: 'PR' },
+      'FOZ': { municipio: 'Foz do Iguaçu', uf: 'PR' },
+      'FZI': { municipio: 'Foz do Iguaçu', uf: 'PR' },
+      'PGR': { municipio: 'Ponta Grossa', uf: 'PR' },
+      'GUA': { municipio: 'Guarapuava', uf: 'PR' },
+      'PTO': { municipio: 'Pato Branco', uf: 'PR' },
+      'APU': { municipio: 'Apucarana', uf: 'PR' },
+      'UMU': { municipio: 'Umuarama', uf: 'PR' },
+      'TBA': { municipio: 'Curitiba', uf: 'PR' },
+      
+      'CXS': { municipio: 'Caxias do Sul', uf: 'RS' },
+      'PEL': { municipio: 'Pelotas', uf: 'RS' },
+      'SMO': { municipio: 'Santa Maria', uf: 'RS' },
+      'SMA': { municipio: 'Santa Maria', uf: 'RS' },
+      'PAS': { municipio: 'Passo Fundo', uf: 'RS' },
+      'PFU': { municipio: 'Passo Fundo', uf: 'RS' },
+      'RGO': { municipio: 'Rio Grande', uf: 'RS' },
+      'CAN': { municipio: 'Canoas', uf: 'RS' },
+      'NHB': { municipio: 'Novo Hamburgo', uf: 'RS' },
+      'SLE': { municipio: 'São Leopoldo', uf: 'RS' },
+      'SCS': { municipio: 'Santa Cruz do Sul', uf: 'RS' },
+      'BGV': { municipio: 'Bento Gonçalves', uf: 'RS' },
+      'ERE': { municipio: 'Erechim', uf: 'RS' },
+      'LJD': { municipio: 'Lajeado', uf: 'RS' },
+      'URU': { municipio: 'Uruguaiana', uf: 'RS' },
+      
+      'JOI': { municipio: 'Joinville', uf: 'SC' },
+      'JVE': { municipio: 'Joinville', uf: 'SC' },
+      'BNU': { municipio: 'Blumenau', uf: 'SC' },
+      'BLU': { municipio: 'Blumenau', uf: 'SC' },
+      'CHA': { municipio: 'Chapecó', uf: 'SC' },
+      'XAP': { municipio: 'Chapecó', uf: 'SC' },
+      'CRI': { municipio: 'Criciúma', uf: 'SC' },
+      'ITA': { municipio: 'Itajaí', uf: 'SC' },
+      'BCY': { municipio: 'Balneário Camboriú', uf: 'SC' },
+      'LGS': { municipio: 'Lages', uf: 'SC' },
+      'TUB': { municipio: 'Tubarão', uf: 'SC' },
+      'BQU': { municipio: 'Brusque', uf: 'SC' },
+      
+      'FSA': { municipio: 'Feira de Santana', uf: 'BA' },
+      'VCA': { municipio: 'Vitória da Conquista', uf: 'BA' },
+      'ILH': { municipio: 'Ilhéus', uf: 'BA' },
+      'JUA': { municipio: 'Juazeiro', uf: 'BA' },
+      'LEX': { municipio: 'Luís Eduardo Magalhães', uf: 'BA' },
+      'POR': { municipio: 'Porto Seguro', uf: 'BA' },
+      'ALA': { municipio: 'Alagoinhas', uf: 'BA' },
+      'CAM': { municipio: 'Camaçari', uf: 'BA' },
+      'LAU': { municipio: 'Lauro de Freitas', uf: 'BA' },
+      
+      'CRU': { municipio: 'Caruaru', uf: 'PE' },
+      'CAR': { municipio: 'Caruaru', uf: 'PE' },
+      'PET': { municipio: 'Petrolina', uf: 'PE' },
+      'PTL': { municipio: 'Petrolina', uf: 'PE' },
+      'OLI': { municipio: 'Olinda', uf: 'PE' },
+      'JAB': { municipio: 'Jaboatão dos Guararapes', uf: 'PE' },
+      'GAR': { municipio: 'Garanhuns', uf: 'PE' },
+      
+      'CPG': { municipio: 'Campina Grande', uf: 'PB' },
+      'CGP': { municipio: 'Campina Grande', uf: 'PB' },
+      'PAT': { municipio: 'Patos', uf: 'PB' },
+      'SOU': { municipio: 'Sousa', uf: 'PB' },
+      'CZS': { municipio: 'Cajazeiras', uf: 'PB' },
+      
+      'JDO': { municipio: 'Juazeiro do Norte', uf: 'CE' },
+      'SOB': { municipio: 'Sobral', uf: 'CE' },
+      'SBR': { municipio: 'Sobral', uf: 'CE' },
+      'CAU': { municipio: 'Caucaia', uf: 'CE' },
+      'MAR': { municipio: 'Maracanaú', uf: 'CE' },
+      'CRF': { municipio: 'Crato', uf: 'CE' },
+      'IGN': { municipio: 'Iguatu', uf: 'CE' },
+      'QUI': { municipio: 'Quixadá', uf: 'CE' },
+      
+      'MOS': { municipio: 'Mossoró', uf: 'RN' },
+      'MSO': { municipio: 'Mossoró', uf: 'RN' },
+      'CAI': { municipio: 'Caicó', uf: 'RN' },
+      
+      'STN': { municipio: 'Santarém', uf: 'PA' },
+      'STM': { municipio: 'Santarém', uf: 'PA' },
+      'MAB': { municipio: 'Marabá', uf: 'PA' },
+      'MBA': { municipio: 'Marabá', uf: 'PA' },
+      'ALT': { municipio: 'Altamira', uf: 'PA' },
+      'RED': { municipio: 'Redenção', uf: 'PA' },
+      
+      'IMP': { municipio: 'Imperatriz', uf: 'MA' },
+      'ITZ': { municipio: 'Imperatriz', uf: 'MA' },
+      'CAX': { municipio: 'Caxias', uf: 'MA' },
+      'TIM': { municipio: 'Timon', uf: 'MA' },
+      'BAC': { municipio: 'Bacabal', uf: 'MA' },
+      'BAL': { municipio: 'Balsas', uf: 'MA' },
+      
+      'PHB': { municipio: 'Parnaíba', uf: 'PI' },
+      'PIC': { municipio: 'Picos', uf: 'PI' },
+      
+      'ARA': { municipio: 'Arapiraca', uf: 'AL' },
+      'PAL': { municipio: 'Palmeira dos Índios', uf: 'AL' },
+      
+      'LAG': { municipio: 'Lagarto', uf: 'SE' },
+      
+      'ANP': { municipio: 'Anápolis', uf: 'GO' },
+      'RVD': { municipio: 'Rio Verde', uf: 'GO' },
+      'JAT': { municipio: 'Jataí', uf: 'GO' },
+      'CAT': { municipio: 'Catalão', uf: 'GO' },
+      'LUZ': { municipio: 'Luziânia', uf: 'GO' },
+      'VAL': { municipio: 'Valparaíso de Goiás', uf: 'GO' },
+      'CAL': { municipio: 'Caldas Novas', uf: 'GO' },
+      
+      'RDO': { municipio: 'Rondonópolis', uf: 'MT' },
+      'ROO': { municipio: 'Rondonópolis', uf: 'MT' },
+      'SIN': { municipio: 'Sinop', uf: 'MT' },
+      'SNP': { municipio: 'Sinop', uf: 'MT' },
+      'TGA': { municipio: 'Tangará da Serra', uf: 'MT' },
+      'LUC': { municipio: 'Lucas do Rio Verde', uf: 'MT' },
+      'PRI': { municipio: 'Primavera do Leste', uf: 'MT' },
+      
+      'DOU': { municipio: 'Dourados', uf: 'MS' },
+      'TLS': { municipio: 'Três Lagoas', uf: 'MS' },
+      'TLG': { municipio: 'Três Lagoas', uf: 'MS' },
+      'COR': { municipio: 'Corumbá', uf: 'MS' },
+      'PPO': { municipio: 'Ponta Porã', uf: 'MS' },
+      
+      'JPR': { municipio: 'Ji-Paraná', uf: 'RO' },
+      'ARI': { municipio: 'Ariquemes', uf: 'RO' },
+      'CAK': { municipio: 'Cacoal', uf: 'RO' },
+      'VIL': { municipio: 'Vilhena', uf: 'RO' },
+      'ROL': { municipio: 'Rolim de Moura', uf: 'RO' },
+      
+      'CZS': { municipio: 'Cruzeiro do Sul', uf: 'AC' },
+      'LAR': { municipio: 'Laranjal do Jari', uf: 'AP' },
+      'RRZ': { municipio: 'Rorainópolis', uf: 'RR' },
+      
+      'AGN': { municipio: 'Araguaína', uf: 'TO' },
+      'GUR': { municipio: 'Gurupi', uf: 'TO' }
+    };
+
+    async function fetchCityInfo(sigla, expectedUf = '') {
+      if (!sigla) return null;
+      const s = String(sigla).toUpperCase();
+      const uf = (expectedUf || '').toUpperCase();
+      const key = `${s}_${uf}`;
+      
+      if (cityCache.has(key)) {
+        return cityCache.get(key);
+      }
+
+      // 1. Instant match from telecom CNL dictionary (zero CORS friction)
+      if (TELECOM_CNL_MAP[s]) {
+        const entry = TELECOM_CNL_MAP[s];
+        const match = {
+          municipio: entry.municipio,
+          uf: uf || entry.uf,
+          cnl: s
+        };
+        cityCache.set(key, match);
+        return match;
+      }
+      
+      // 2. Query external endpoint if available, with safe silent catch for CORS
+      try {
+        const formData = new URLSearchParams();
+        formData.append('q', s.toLowerCase());
+        
+        const res = await fetch('https://dev.onerio.pw/raphael/index.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: formData.toString()
+        });
+        
+        if (res && res.ok) {
+          const html = await res.text();
+          const parsed = parseCityResponse(html, expectedUf);
+          if (parsed) {
+            cityCache.set(key, parsed);
+            return parsed;
+          }
+        }
+      } catch (e) {
+        // Silent catch (CORS or network error)
+      }
+      
+      // 3. Fallback to sigla/uf format
+      const fallback = {
+        municipio: s,
+        uf: uf,
+        cnl: s
+      };
+      cityCache.set(key, fallback);
+      return fallback;
+    }
+
+    function resolveNodesCityInfo(cyInstance) {
+      if (!cyInstance || typeof cyInstance.nodes !== 'function' || cyInstance.destroyed()) return;
+      
+      cyInstance.nodes().forEach(node => {
+        const d = node.data();
+        const host = d.fullHost || d.id;
+        const meta = extractHostMetadata(host);
+        const info = classifyBackboneHost(host, d.deliveryType, d.trigger);
+        
+        if (meta.sigla) {
+          fetchCityInfo(meta.sigla, meta.uf).then(cityInfo => {
+            if (!cityInfo || !cyInstance || cyInstance.destroyed()) return;
+            const cityDisplay = `${cityInfo.municipio} - ${cityInfo.uf || meta.uf}`;
+            const popText = meta.pop ? ` (${meta.pop})` : '';
+            const updatedLabel = `${info.badge} ${host}\n📍 ${cityDisplay}${popText}`;
+            node.data('city', cityDisplay);
+            node.data('label', updatedLabel);
+          });
+        }
+      });
+    }
+
+    function classifyBackboneHost(hostname, deliveryType = '', trigger = '') {
+      const host = String(hostname || '').toUpperCase();
+      const deliv = String(deliveryType || '').toUpperCase();
+      const trig = String(trigger || '').toUpperCase();
+      const isDark = document.body && document.body.classList.contains('theme-dark-red');
+
+      if (/(?:[-.]|^)(?:PE|PE\d+)(?:[-.]|$)/i.test(host)) {
+        const color = isDark ? '#f87171' : '#0b6f6a';
+        return {
+          role: 'PE Router',
+          badge: '[🔀 PE]',
+          type: 'pe',
+          shape: 'rectangle',
+          borderColor: color,
+          svgIcon: getEquipmentSvgUri('pe', color, isDark)
+        };
+      }
+      if (/(?:[-.]|^)(?:CO|CORE|BB|P\d*|RT\d*)(?:[-.]|$)/i.test(host) || trig.includes('BBGR') || trig.includes('BACKBONE')) {
+        const color = isDark ? '#c084fc' : '#1e3a8a';
+        return {
+          role: 'Core Router',
+          badge: '[🌐 CORE]',
+          type: 'core',
+          shape: 'rectangle',
+          borderColor: color,
+          svgIcon: getEquipmentSvgUri('core', color, isDark)
+        };
+      }
+      if (/(?:[-.]|^)(?:SW|SWC|SWF|SWA|DSW|ACC)(?:[-.]|$)/i.test(host)) {
+        const color = isDark ? '#34d399' : '#047857';
+        return {
+          role: 'Metro Switch',
+          badge: '[🔌 SW]',
+          type: 'switch',
+          shape: 'rectangle',
+          borderColor: color,
+          svgIcon: getEquipmentSvgUri('switch', color, isDark)
+        };
+      }
+      if (/(?:[-.]|^)(?:TP|DWDM|OTN|MUX|TRANS)(?:[-.]|$)/i.test(host) || deliv === 'DWD' || deliv === 'DWDM') {
+        const color = isDark ? '#fbbf24' : '#b45309';
+        return {
+          role: 'DWDM / TX',
+          badge: '[📡 DWDM]',
+          type: 'dwdm',
+          shape: 'rectangle',
+          borderColor: color,
+          svgIcon: getEquipmentSvgUri('dwdm', color, isDark)
+        };
+      }
+      if (/(?:[-.]|^)(?:OLT|GPON)(?:[-.]|$)/i.test(host)) {
+        const color = isDark ? '#22d3ee' : '#0284c7';
+        return {
+          role: 'GPON OLT',
+          badge: '[📡 OLT]',
+          type: 'olt',
+          shape: 'rectangle',
+          borderColor: color,
+          svgIcon: getEquipmentSvgUri('olt', color, isDark)
+        };
+      }
+
+      const color = isDark ? '#9ca3af' : '#475569';
+      return {
+        role: 'Equipamento',
+        badge: '[🖥️ NODE]',
+        type: 'generic',
+        shape: 'rectangle',
+        borderColor: color,
+        svgIcon: getEquipmentSvgUri('generic', color, isDark)
+      };
+    }
+
+    // Initialize Cytoscape
+    function initCytoscape() {
+      const container = document.getElementById('topoCanvas');
+      if (!container || typeof cytoscape === 'undefined') return;
+
+      const isDark = document.body && document.body.classList.contains('theme-dark-red');
+
+      cy = cytoscape({
+        container,
+        elements: [],
+        style: [
+          {
+            selector: 'node',
+            style: {
+              'background-opacity': 0,
+              'background-image': 'data(svgIcon)',
+              'background-width': '100%',
+              'background-height': '100%',
+              'background-fit': 'contain',
+              'background-clip': 'none',
+              'shape': 'rectangle',
+              'border-width': 0,
+              'width': 64,
+              'height': 64,
+              'label': 'data(label)',
+              'color': isDark ? '#ffffff' : '#152033',
+              'text-valign': 'bottom',
+              'text-margin-y': 8,
+              'font-size': 11,
+              'font-family': '"Inter", system-ui, -apple-system, sans-serif',
+              'font-weight': 700,
+              'text-background-color': isDark ? '#17171b' : '#ffffff',
+              'text-background-opacity': 0.96,
+              'text-background-padding': 5,
+              'text-background-shape': 'roundrectangle',
+              'text-border-color': isDark ? '#3b1218' : '#d5deea',
+              'text-border-width': 1,
+              'text-border-opacity': 0.9,
+              'text-wrap': 'wrap',
+              'text-max-width': '165px'
+            }
+          },
+          {
+            selector: 'node:selected',
+            style: {
+              'overlay-color': isDark ? '#ff4966' : '#0b6f6a',
+              'overlay-padding': 6,
+              'overlay-opacity': 0.18,
+              'overlay-shape': 'roundrectangle'
+            }
+          },
+          {
+            selector: 'edge',
+            style: {
+              'width': 2.5,
+              'line-color': 'data(lineColor)',
+              'target-arrow-color': 'data(lineColor)',
+              'target-arrow-shape': 'triangle',
+              'arrow-scale': 1.1,
+              'label': 'data(label)',
+              'color': isDark ? '#f8fafc' : '#1e293b',
+              'font-size': 9.5,
+              'font-family': '"Inter", sans-serif',
+              'font-weight': 600,
+              'text-background-color': isDark ? '#17171b' : '#ffffff',
+              'text-background-opacity': 0.95,
+              'text-background-padding': 4,
+              'text-background-shape': 'roundrectangle',
+              'text-border-color': isDark ? '#3b1218' : '#d5deea',
+              'text-border-width': 1,
+              'text-border-opacity': 0.9,
+              'curve-style': 'bezier',
+              'text-wrap': 'wrap',
+              'text-max-width': '140px',
+              'edge-text-rotation': 'autorotate'
+            }
+          },
+          {
+            selector: 'edge[isTrunk = "true"]',
+            style: {
+              'width': 4,
+              'line-style': 'dashed'
+            }
+          },
+          {
+            selector: 'edge:selected',
+            style: {
+              'width': 4,
+              'overlay-color': isDark ? '#ff4966' : '#0b6f6a',
+              'overlay-padding': 4,
+              'overlay-opacity': 0.18
+            }
+          }
+        ],
+        layout: { 
+          name: 'cose', 
+          animate: false, 
+          fit: true, 
+          padding: 50,
+          nodeRepulsion: 600000,
+          idealEdgeLength: 160
+        },
+        minZoom: 0.2,
+        maxZoom: 3
+      });
+
+      cy.on('tap', 'node', function(evt) {
+        const node = evt.target;
+        console.log('Node clicked:', node.id());
+      });
+    }
+
+    // Get technology icon based on delivery type
+    function getTechIcon(deliveryType, trigger) {
+      if (!deliveryType && !trigger) return '🖥️';
+      
+      const type = (deliveryType || '').toUpperCase();
+      const trig = (trigger || '').toUpperCase();
+      
+      if (type === 'DWD' || type === 'DWDM') return '📡';
+      if (type === 'FIB') return '🔗';
+      if (type === 'RAD') return '📻';
+      if (type === 'CAP') return '⚡';
+      if (type === 'MGT' || type === 'MG') return '🔄';
+      if (trig.includes('BBGR') || trig.includes('BACKBONE')) return '🏢';
+      if (trig.includes('LOOPBACK')) return '🔁';
+      if (trig.includes('CLIENTE') || trig.includes('B2B')) return '👥';
+      if (trig.includes('PTT') || trig.includes('PEERING')) return '🌐';
+      
+      return '🖥️';
+    }
+
+    // Get node type based on data
+    function getNodeType(record) {
+      const deliveryType = (record.interfaceData?.deliveryType || '').toUpperCase();
+      const trigger = (record.interfaceData?.trigger || '').toUpperCase();
+      
+      if (deliveryType === 'DWD' || deliveryType === 'DWDM') return 'dwdm';
+      if (deliveryType === 'FIB') return 'fibra';
+      if (deliveryType === 'RAD') return 'radio';
+      if (deliveryType === 'CAP') return 'capacidade';
+      if (deliveryType === 'MGT' || deliveryType === 'MG') return 'gerencia';
+      if (trigger.includes('BBGR') || trigger.includes('BACKBONE')) return 'backbone';
+      
+      return 'source';
+    }
+
+    // Parse alarm line
+    function parseAlarmLine(line) {
+      const hostPattern = /(?:BR[.-][A-Z]{2}(?:[.-][A-Z0-9]{2,6}){2,4}[.-]\d{1,2})/i;
+      const hostMatch = line.match(hostPattern);
+      
+      if (!hostMatch) return null;
+      
+      const host = hostMatch[0];
+      const afterHost = line.slice(line.indexOf(host) + host.length);
+      
+      const ifaceMatch = afterHost.match(/^\s*([^\s:]+)\s*::/);
+      const localInterface = ifaceMatch ? ifaceMatch[1] : '';
+      
+      const descMatch = afterHost.match(/::\s*\(([^)]+)\)/) || afterHost.match(/::\s*([^:]+)/);
+      const rawDescription = descMatch ? descMatch[1].trim() : '';
+      const description = rawDescription.replace(/^[(\s]+|[)\s]+$/g, '');
+      
+      const descParts = description.split('_');
+      const hostSegment = descParts.find(s => /^BR[.-][A-Z]{2}[.-]/i.test(s));
+      const trigger = descParts[0] || '';
+      const interfaceType = descParts[1] || '';
+      const capacity = descParts[2] || '';
+      const remoteEquipment = hostSegment || descParts[3] || '';
+      const remotePort = descParts[4] || '';
+      const deliveryType = descParts[5] || '';
+      const operator = descParts[6] || '';
+      
+      return {
+        raw: line,
+        sourceHost: host,
+        localInterface,
+        remoteEquipment,
+        remotePort,
+        trigger,
+        interfaceType,
+        capacity,
+        deliveryType,
+        operator,
+        description
+      };
+    }
+
+    // Check if interface is trunk
+    function isTrunk(localInterface) {
+      if (!localInterface) return false;
+      return /eth-trunk|trunk|lag|bundle|port-channel|ae\d+|po\d+/i.test(localInterface);
+    }
+
+    // Learn from alarms
+    function learnFromAlarms(alarmText) {
+      const lines = alarmText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      
+      lines.forEach(line => {
+        const record = parseAlarmLine(line);
+        if (!record) return;
+        
+        const sourceHost = record.sourceHost;
+        const targetHost = record.remoteEquipment;
+        const deliveryType = record.deliveryType;
+        const trigger = record.trigger;
+        const localIface = record.localInterface;
+        const remoteIface = record.remotePort;
+        const trunk = isTrunk(localIface);
+        
+        if (sourceHost) {
+          if (!topologyData.nodes.has(sourceHost)) {
+            topologyData.nodes.set(sourceHost, {
+              id: sourceHost,
+              type: getNodeType(record),
+              interfaces: new Set(),
+              alarmCount: 0
+            });
+          }
+          const node = topologyData.nodes.get(sourceHost);
+          node.alarmCount++;
+          if (localIface) node.interfaces.add(localIface);
+        }
+        
+        if (targetHost) {
+          if (!topologyData.nodes.has(targetHost)) {
+            topologyData.nodes.set(targetHost, {
+              id: targetHost,
+              type: 'equipment',
+              interfaces: new Set(),
+              alarmCount: 0
+            });
+          }
+          const node = topologyData.nodes.get(targetHost);
+          if (remoteIface) node.interfaces.add(remoteIface);
+        }
+        
+        if (sourceHost && targetHost) {
+          const edgeId = `${sourceHost}->${targetHost}`;
+          if (!topologyData.edges.has(edgeId)) {
+            topologyData.edges.set(edgeId, {
+              id: edgeId,
+              source: sourceHost,
+              target: targetHost,
+              localInterfaces: new Set(),
+              remoteInterfaces: new Set(),
+              isTrunk: false,
+              deliveryType: '',
+              trigger: '',
+              alarmCount: 0
+            });
+          }
+          const edge = topologyData.edges.get(edgeId);
+          edge.alarmCount++;
+          if (trunk) edge.isTrunk = true;
+          if (deliveryType) edge.deliveryType = deliveryType;
+          if (trigger) edge.trigger = trigger;
+          if (localIface) edge.localInterfaces.add(localIface);
+          if (remoteIface) edge.remoteInterfaces.add(remoteIface);
+        }
+      });
+      
+      updateTopologyView();
+      updateStats();
+      updateLists();
+    }
+
+    // Update Cytoscape view
+    function updateTopologyView() {
+      if (!cy) initCytoscape();
+      if (!cy) return;
+      
+      const elements = [];
+      
+      topologyData.nodes.forEach(node => {
+        const info = classifyBackboneHost(node.id, '', node.type);
+        const meta = extractHostMetadata(node.id);
+        const cached = cityCache.get(`${meta.sigla.toUpperCase()}_${meta.uf.toUpperCase()}`);
+        const cityText = cached ? `${cached.municipio} - ${cached.uf || meta.uf}` : (meta.uf ? `${meta.sigla} - ${meta.uf}` : meta.sigla);
+        const popText = meta.pop ? ` (${meta.pop})` : '';
+        const label = `${info.badge} ${node.id}\n📍 ${cityText}${popText}`;
+        
+        elements.push({
+          data: {
+            id: node.id,
+            label: label,
+            fullHost: node.id,
+            pop: meta.pop,
+            sigla: meta.sigla,
+            uf: meta.uf,
+            city: cached ? cached.municipio : '',
+            role: info.role,
+            type: node.type,
+            shape: info.shape,
+            borderColor: info.borderColor,
+            svgIcon: info.svgIcon,
+            interfaces: Array.from(node.interfaces),
+            alarmCount: node.alarmCount
+          }
+        });
+      });
+      
+      topologyData.edges.forEach(edge => {
+        const ifaceList = Array.from(edge.localInterfaces);
+        const remoteList = Array.from(edge.remoteInterfaces);
+        const ifacePair = ifaceList.length > 0
+          ? `${ifaceList[0]} ⟷ ${remoteList[0] || 'Remota'}`
+          : 'Enlace';
+        
+        const details = [edge.deliveryType, edge.trigger].filter(Boolean).join(' • ');
+        const capLabel = details ? `[${details}]` : '';
+        const edgeLabel = edge.isTrunk
+          ? `🔗 TRUNK (${edge.localInterfaces.size} ifaces)\n${ifacePair}`
+          : (capLabel ? `⚡ ${ifacePair}\n${capLabel}` : `↔️ ${ifacePair}`);
+
+        const isAlarm = edge.alarmCount > 0;
+        const isDwdm = edge.deliveryType === 'DWD' || edge.deliveryType === 'DWDM';
+        const lineColor = isAlarm ? '#a83b3b' : (edge.isTrunk ? '#d97706' : (isDwdm ? '#b45309' : '#0b6f6a'));
+        
+        elements.push({
+          data: {
+            id: edge.id,
+            source: edge.source,
+            target: edge.target,
+            label: edgeLabel,
+            ifacePair: ifacePair,
+            isTrunk: edge.isTrunk,
+            deliveryType: edge.deliveryType,
+            trigger: edge.trigger,
+            alarmCount: edge.alarmCount,
+            lineColor: lineColor
+          }
+        });
+      });
+      
+      if (cy && typeof cy.destroyed === 'function' && !cy.destroyed()) {
+        try { cy.stop(); } catch (e) {}
+        cy.batch(() => {
+          cy.elements().remove();
+          cy.add(elements);
+        });
+        
+        if (elements.length > 0) {
+          document.getElementById('topoEmpty').style.display = 'none';
+          cy.layout({ name: 'cose', animate: false, fit: true, padding: 50 }).run();
+          resolveNodesCityInfo(cy);
+        } else {
+          document.getElementById('topoEmpty').style.display = 'grid';
+        }
+      }
+    }
+
+    // Update stats
+    function updateStats() {
+      document.getElementById('statNodes').textContent = topologyData.nodes.size;
+      document.getElementById('statLinks').textContent = topologyData.edges.size;
+      document.getElementById('statCorrections').textContent = topologyData.corrections.length;
+    }
+
+    // Update lists
+    function updateLists() {
+      const nodesList = document.getElementById('nodesList');
+      const linksList = document.getElementById('linksList');
+      
+      nodesList.innerHTML = '';
+      topologyData.nodes.forEach(node => {
+        const icon = getTechIcon(node.type === 'equipment' ? '' : node.type, '');
+        const div = document.createElement('div');
+        div.className = 'topo-list-item';
+        div.innerHTML = `
+          <span class="topo-list-item-icon">${icon}</span>
+          <div class="topo-list-item-info">
+            <div class="topo-list-item-title">${node.id}</div>
+            <div class="topo-list-item-sub">Alarmes: ${node.alarmCount} | Ifaces: ${node.interfaces.size}</div>
+          </div>
+          <div class="topo-list-item-actions">
+            <button onclick="editNode('${node.id}')" title="Editar">✏️</button>
+            <button onclick="deleteNode('${node.id}')" title="Excluir">🗑️</button>
+          </div>
+        `;
+        nodesList.appendChild(div);
+      });
+      
+      linksList.innerHTML = '';
+      topologyData.edges.forEach(edge => {
+        const icon = getTechIcon(edge.deliveryType, edge.trigger);
+        const div = document.createElement('div');
+        div.className = 'topo-list-item';
+        div.innerHTML = `
+          <span class="topo-list-item-icon">${icon}</span>
+          <div class="topo-list-item-info">
+            <div class="topo-list-item-title">${edge.source} → ${edge.target}</div>
+            <div class="topo-list-item-sub">${edge.isTrunk ? 'TRUNK' : 'Link'} | Alarmes: ${edge.alarmCount}</div>
+          </div>
+          <div class="topo-list-item-actions">
+            <button onclick="editEdge('${edge.id}')" title="Editar">✏️</button>
+            <button onclick="deleteEdge('${edge.id}')" title="Excluir">🗑️</button>
+          </div>
+        `;
+        linksList.appendChild(div);
+      });
+    }
+
+    // Zoom controls
+    function topoZoomIn() { if (cy) cy.zoom(cy.zoom() * 1.2); }
+    function topoZoomOut() { if (cy) cy.zoom(cy.zoom() / 1.2); }
+    function topoZoomFit() { if (cy) cy.fit(null, 48); }
+    function topoCenter() { if (cy) cy.center(); }
+
+    // Layout controls
+    function topoLayoutCose() {
+      if (cy) cy.layout({ name: 'cose', animate: true, animationDuration: 350, fit: true, padding: 48 }).run();
+    }
+    function topoLayoutCircle() {
+      if (cy) cy.layout({ name: 'circle', animate: true, animationDuration: 350, fit: true, padding: 48 }).run();
+    }
+    function topoLayoutGrid() {
+      if (cy) cy.layout({ name: 'grid', animate: true, animationDuration: 350, fit: true, padding: 48 }).run();
+    }
+
+    // Reload
+    function topoReload() {
+      updateTopologyView();
+    }
+
+    // Edit functions
+    function editNode(nodeId) {
+      const node = topologyData.nodes.get(nodeId);
+      if (!node) return;
+      
+      const newId = prompt('Editar ID do node:', node.id);
+      if (newId && newId !== node.id) {
+        topologyData.corrections.push({ type: 'node', oldId: nodeId, newId, timestamp: Date.now() });
+        topologyData.nodes.delete(nodeId);
+        node.id = newId;
+        topologyData.nodes.set(newId, node);
+        updateTopologyView();
+        updateStats();
+        updateLists();
+      }
+    }
+
+    function deleteNode(nodeId) {
+      if (!confirm(`Remover node ${nodeId}?`)) return;
+      topologyData.nodes.delete(nodeId);
+      for (const [edgeId, edge] of topologyData.edges) {
+        if (edge.source === nodeId || edge.target === nodeId) {
+          topologyData.edges.delete(edgeId);
+        }
+      }
+      updateTopologyView();
+      updateStats();
+      updateLists();
+    }
+
+    function editEdge(edgeId) {
+      const edge = topologyData.edges.get(edgeId);
+      if (!edge) return;
+      
+      const newSource = prompt('Editar origem:', edge.source);
+      if (newSource) edge.source = newSource;
+      
+      const newTarget = prompt('Editar destino:', edge.target);
+      if (newTarget) edge.target = newTarget;
+      
+      topologyData.corrections.push({ type: 'edge', edgeId, timestamp: Date.now() });
+      updateTopologyView();
+      updateStats();
+      updateLists();
+    }
+
+    function deleteEdge(edgeId) {
+      if (!confirm(`Remover link?`)) return;
+      topologyData.edges.delete(edgeId);
+      updateTopologyView();
+      updateStats();
+      updateLists();
+    }
+
+    // Clear topology
+    function clearTopology() {
+      if (!confirm('Limpar toda a topologia?')) return;
+      topologyData.nodes.clear();
+      topologyData.edges.clear();
+      topologyData.corrections = [];
+      updateTopologyView();
+      updateStats();
+      updateLists();
+    }
+
+    // Export topology
+    function exportTopology() {
+      const data = {
+        nodes: Array.from(topologyData.nodes.values()).map(n => ({
+          ...n,
+          interfaces: Array.from(n.interfaces)
+        })),
+        edges: Array.from(topologyData.edges.values()).map(e => ({
+          ...e,
+          localInterfaces: Array.from(e.localInterfaces),
+          remoteInterfaces: Array.from(e.remoteInterfaces)
+        })),
+        corrections: topologyData.corrections
+      };
+      
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'topology.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Alarm input handler
+    document.getElementById('alarmInput').addEventListener('input', debounce(function() {
+      learnFromAlarms(this.value);
+    }, 300));
+
+    function debounce(fn, delay) {
+      let timer;
+      return function(...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), delay);
+      };
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      initCytoscape();
+      updateTopologyView();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,115 @@
+/* Topology Learning System Styles */
+.topology-learning-status {
+  display: flex;
+  gap: 16px;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.topology-learning-status span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.topology-nodes-list,
+.topology-edges-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.topology-nodes-list h4,
+.topology-edges-list h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: var(--primary);
+}
+
+.topology-node-item,
+.topology-edge-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #ffffff;
+  font-size: 12px;
+}
+
+.node-icon,
+.edge-icon {
+  font-size: 18px;
+}
+
+.node-id,
+.edge-id {
+  font-weight: 700;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.node-info,
+.edge-info {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.btn-edit-node,
+.btn-delete-node,
+.btn-edit-edge,
+.btn-delete-edge {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  cursor: pointer;
+  font-size: 14px;
+  display: grid;
+  place-items: center;
+}
+
+.btn-edit-node:hover,
+.btn-edit-edge:hover {
+  border-color: var(--primary);
+  background: #eef9f7;
+}
+
+.btn-delete-node:hover,
+.btn-delete-edge:hover {
+  border-color: var(--danger);
+  background: #fdeaea;
+}
+
+#experimentalTopology {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #f8fafc;
+}
+
+body.theme-dark-red .topology-learning-status {
+  background: #111115;
+}
+
+body.theme-dark-red .topology-node-item,
+body.theme-dark-red .topology-edge-item {
+  background: #111115;
+  border-color: var(--line);
+}
+
+body.theme-dark-red #experimentalTopology {
+  background: #111115;
+  border-color: var(--line);
+}

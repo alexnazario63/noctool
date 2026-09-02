@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8">
@@ -10,8 +10,43 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="topology-styles.css">
+    <style>
+      .lang-selector {
+        display: flex;
+        gap: 4px;
+        margin-left: 12px;
+      }
+      .lang-btn {
+        padding: 4px 8px;
+        border: 1px solid rgba(255,255,255,0.3);
+        background: transparent;
+        color: inherit;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        transition: all 0.2s;
+      }
+      .lang-btn:hover {
+        background: rgba(255,255,255,0.1);
+      }
+      .lang-btn.active {
+        background: rgba(255,255,255,0.2);
+        border-color: rgba(255,255,255,0.5);
+      }
+    </style>
   </head>
   <body class="app-not-started">
+    <div id="appTopProgressBar" class="app-top-progress" hidden aria-hidden="true">
+      <div class="app-top-progress-bar" id="appTopProgressFill"></div>
+    </div>
+    <div id="nocLoadingOverlay" class="noc-loading-overlay" aria-hidden="true">
+      <div class="noc-loading-card">
+        <div class="noc-spinner"></div>
+        <p id="nocLoadingText" class="noc-loading-text" data-i18n="loading">Processando...</p>
+      </div>
+    </div>
     <canvas id="threeBackground" class="three-background" aria-hidden="true"></canvas>
     <section class="launch-screen" id="launchScreen" aria-label="Apresentação NOC IP TOOL">
       <div class="launch-modal animate__animated animate__fadeInUp">
@@ -20,32 +55,32 @@
             <div class="brand launch-brand">
               <span class="brand-mark" aria-hidden="true"><i data-lucide="radio-tower"></i></span>
               <div>
-                <p class="eyebrow">Developed by Alexsander</p>
-                <p class="eyebrow">Version 3.2</p>
-                <h1>NOC IP TOOL</h1>
+                <p class="eyebrow" data-i18n="developedBy">Developed by Alexsander</p>
+                <p class="eyebrow" data-i18n="version">Version 3.3</p>
+                <h1 data-i18n="appTitle">NOC IP TOOL</h1>
               </div>
             </div>
           <div></div>
-            <h7>Changelog</h7>
-            <p>Ferramenta IP para capacidades e massivas com análise de alarmes com fluxo guiado.</p>
+            <h7 data-i18n="changelog">Changelog</h7>
+            <p data-i18n="changelogIntro">Ferramenta IP para capacidades e massivas com análise de alarmes com fluxo guiado.</p>
             <ol>
-              <li>Fluxo Capacidades com abertura, Bdesk, reconhecimento, e-mail e finalização.</li>
-              <li>Fluxo Massivas com analise de alarmes e reconhecimneto e atualização - BETA.</li>
-              <li>Aprimorado detecção de alarmes e organização.</li>
-              <li>incorporado aprendizado inteligente de acordo com analises de fluxos.</li>
-              <li>Padronizações de textos e modelos de abertura, atualização e alarmes.</li>
-              <li>Melhorias de performance e correções de bugs.</li>
+              <li data-i18n="changelogItem1">Fluxo Capacidades com abertura, Bdesk, reconhecimento, e-mail e finalização.</li>
+              <li data-i18n="changelogItem2">Fluxo Massivas com análise de alarmes, reconhecimento e atualização direta.</li>
+              <li data-i18n="changelogItem3">Topologia de rede Backbone com nós em 3D e resolução de cidade/POP.</li>
+              <li data-i18n="changelogItem4">Extração do host afetado diretamente da descrição do enlace.</li>
+              <li data-i18n="changelogItem5">Animações de carregamento anti-flicker e tela de diagnóstico de erros.</li>
+              <li data-i18n="changelogItem6">Atualizador com limpeza de cache e temas claro/escuro refinados.</li>
             </ol>
-              <p>Futuras funcionalidades</p>
+            <p data-i18n="futureFeatures">Futuras funcionalidades</p>
             <ol>
-              <li>Topologia dinamica com aprendizado automatico e adaptativa</li>
+              <li data-i18n="futureFeature1">Topologia dinâmica com aprendizado automático e adaptativa</li>
             </ol>
           </div>
         </div>
         <div class="launch-actions">
-          <button class="primary-button launch-action" id="startAutoButton" type="button"><i data-lucide="wand-sparkles"></i> Capacidades</button>
-          <button class="ghost-button launch-action" id="startMassivasButton" type="button"><i data-lucide="layers-3"></i> MASSIVAS</button>
-          <button class="ghost-button launch-action" id="parametersButton" type="button"><i data-lucide="sliders-horizontal"></i> Parâmetros</button>
+          <button class="primary-button launch-action" id="startAutoButton" type="button"><i data-lucide="wand-sparkles"></i> <span data-i18n="capabilities">Capacidades</span></button>
+          <button class="ghost-button launch-action" id="startMassivasButton" type="button"><i data-lucide="layers-3"></i> <span data-i18n="massivas">MASSIVAS</span></button>
+          <button class="ghost-button launch-action" id="parametersButton" type="button"><i data-lucide="sliders-horizontal"></i> <span data-i18n="parameters">Parâmetros</span></button>
         </div>
       </div>
     </section>
@@ -55,14 +90,14 @@
           <div class="brand">
             <span class="brand-mark" aria-hidden="true"><i data-lucide="radio-tower"></i></span>
             <div>
-              <p class="eyebrow">Fluxo automático</p>
-              <h1>NOC IP TOOL</h1>
+              <p class="eyebrow" data-i18n="autoFlow">Fluxo automático</p>
+              <h1 data-i18n="appTitle">NOC IP TOOL</h1>
             </div>
           </div>
           <p class="status" id="autoStatus" role="status" aria-live="polite">Passo 1 de 5</p>
           <div class="navbar-actions">
-            <button class="ghost-button" id="autoHomeButton" type="button"><i data-lucide="house"></i> Início</button>
-            <button class="ghost-button" id="autoManualButton" type="button"><i data-lucide="layout-dashboard"></i> Edição manual</button>
+            <button class="ghost-button" id="autoHomeButton" type="button"><i data-lucide="house"></i> <span data-i18n="home">Início</span></button>
+            <button class="ghost-button" id="autoManualButton" type="button"><i data-lucide="layout-dashboard"></i> <span data-i18n="manualEdit">Edição manual</span></button>
           </div>
         </nav>
 
@@ -71,37 +106,37 @@
             <div class="auto-progress" aria-label="Progresso do fluxo automático">
               <div class="progress-track"><span id="autoProgressFill"></span></div>
               <div class="step-nav" id="autoStepNav">
-                <button type="button" class="step-nav-item is-active" data-step-nav="1">1 <span>Alarmes</span></button>
-                <button type="button" class="step-nav-item" data-step-nav="2">2 <span>Bdesk</span></button>
-                <button type="button" class="step-nav-item" data-step-nav="3">3 <span>Chamado</span></button>
-                <button type="button" class="step-nav-item" data-step-nav="4">4 <span>E-mail</span></button>
-                <button type="button" class="step-nav-item" data-step-nav="5">5 <span>Finalizar</span></button>
+                <button type="button" class="step-nav-item is-active" data-step-nav="1">1 <span data-i18n="alarms">Alarmes</span></button>
+                <button type="button" class="step-nav-item" data-step-nav="2">2 <span data-i18n="bdeskSubject">Bdesk</span></button>
+                <button type="button" class="step-nav-item" data-step-nav="3">3 <span data-i18n="internalTicket">Chamado</span></button>
+                <button type="button" class="step-nav-item" data-step-nav="4">4 <span data-i18n="email">E-mail</span></button>
+                <button type="button" class="step-nav-item" data-step-nav="5">5 <span data-i18n="finalization">Finalizar</span></button>
               </div>
             </div>
             <article class="auto-step is-active" data-auto-step="1">
               <div class="step-heading">
                 <span class="step-count">1</span>
                 <div>
-                  <p class="eyebrow">Alarmes</p>
-                  <h2><i data-lucide="radio-receiver"></i> Colar alarmes e confirmar dados</h2>
+                  <p class="eyebrow" data-i18n="alarms">Alarmes</p>
+                  <h2><i data-lucide="radio-receiver"></i> <span data-i18n="pasteAlarms">Colar alarmes e confirmar dados</span></h2>
                 </div>
               </div>
               <label class="field wide">
-                <span>Alarmes, evento ou evidência</span>
-                <textarea id="autoEvents" rows="10" placeholder="Cole os alarmes aqui"></textarea>
+                <span data-i18n="alarmsEventEvidence">Alarmes, evento ou evidência</span>
+                <textarea id="autoEvents" rows="10" data-i18n-placeholder="alarmsPlaceholder" placeholder="Cole os alarmes aqui"></textarea>
               </label>
               <div class="field-row two">
                 <label class="field">
-                  <span>Parceiro</span>
+                  <span data-i18n="partner">Parceiro</span>
                   <input list="partnersList" id="autoCarrier" type="text" value="CLARO" autocomplete="off">
                 </label>
                 <label class="field">
-                  <span>Tipo de falha</span>
+                  <span data-i18n="failureType">Tipo de falha</span>
                   <input list="failureTypesList" id="autoFailureType" type="text" value="INDISPONIBILIDADE" autocomplete="off">
                 </label>
               </div>
               <div class="auto-actions">
-                <button class="primary-button" id="autoConfirmStep1" type="button"><i data-lucide="check"></i> Confirmar dados</button>
+                <button class="primary-button" id="autoConfirmStep1" type="button"><i data-lucide="check"></i> <span data-i18n="confirmData">Confirmar dados</span></button>
               </div>
             </article>
 
@@ -109,17 +144,17 @@
               <div class="step-heading">
                 <span class="step-count">2</span>
                 <div>
-                  <p class="eyebrow">Bdesk e abertura</p>
-                  <h2><i data-lucide="clipboard-pen-line"></i> Gerar textos iniciais</h2>
+                  <p class="eyebrow" data-i18n="bdeskOpening">Bdesk e abertura</p>
+                  <h2><i data-lucide="clipboard-pen-line"></i> <span data-i18n="generateInitialTexts">Gerar textos iniciais</span></h2>
                 </div>
               </div>
               <div class="auto-button-grid">
-                <button class="copy-action auto-copy-action" type="button" data-copy-kind="description" data-preview-kind="description"><i data-lucide="file-text"></i> Assunto Bdesk</button>
-                <button class="copy-action auto-copy-action" type="button" data-copy-kind="opening" data-preview-kind="opening"><i data-lucide="clipboard-list"></i> Texto de abertura</button>
+                <button class="copy-action auto-copy-action" type="button" data-copy-kind="description" data-preview-kind="description"><i data-lucide="file-text"></i> <span data-i18n="bdeskSubject">Assunto Bdesk</span></button>
+                <button class="copy-action auto-copy-action" type="button" data-copy-kind="opening" data-preview-kind="opening"><i data-lucide="clipboard-list"></i> <span data-i18n="openingText">Texto de abertura</span></button>
               </div>
               <div class="auto-actions">
-                <button class="ghost-button auto-prev" type="button"><i data-lucide="arrow-left"></i> Voltar</button>
-                <button class="primary-button auto-next" type="button"><i data-lucide="arrow-right"></i> Próximo passo</button>
+                <button class="ghost-button auto-prev" type="button"><i data-lucide="arrow-left"></i> <span data-i18n="back">Voltar</span></button>
+                <button class="primary-button auto-next" type="button"><i data-lucide="arrow-right"></i> <span data-i18n="nextStep">Próximo passo</span></button>
               </div>
             </article>
 
@@ -127,20 +162,20 @@
               <div class="step-heading">
                 <span class="step-count">3</span>
                 <div>
-                  <p class="eyebrow">Chamado interno</p>
-                  <h2><i data-lucide="badge-check"></i> Colar chamado e reconhecer alarmes</h2>
+                  <p class="eyebrow" data-i18n="internalTicket">Chamado interno</p>
+                  <h2><i data-lucide="badge-check"></i> <span data-i18n="pasteTicket">Colar chamado e reconhecer alarmes</span></h2>
                 </div>
               </div>
               <label class="field">
-                <span>Chamado interno</span>
-                <input id="autoInternalTicket" type="text" placeholder="588604">
+                <span data-i18n="internalTicket">Chamado interno</span>
+                <input id="autoInternalTicket" type="text" data-i18n-placeholder="internalTicketPlaceholder" placeholder="588604">
               </label>
               <div class="auto-button-grid is-conditional" id="autoRecognizeActions" hidden>
-                <button class="copy-action auto-copy-action" type="button" data-copy-kind="recognize" data-preview-kind="recognize"><i data-lucide="badge-check"></i> Reconhecer alarmes</button>
+                <button class="copy-action auto-copy-action" type="button" data-copy-kind="recognize" data-preview-kind="recognize"><i data-lucide="badge-check"></i> <span data-i18n="recognizeAlarms">Reconhecer alarmes</span></button>
               </div>
               <div class="auto-actions">
-                <button class="ghost-button auto-prev" type="button"><i data-lucide="arrow-left"></i> Voltar</button>
-                <button class="primary-button auto-next" type="button"><i data-lucide="arrow-right"></i> Próximo passo</button>
+                <button class="ghost-button auto-prev" type="button"><i data-lucide="arrow-left"></i> <span data-i18n="back">Voltar</span></button>
+                <button class="primary-button auto-next" type="button"><i data-lucide="arrow-right"></i> <span data-i18n="nextStep">Próximo passo</span></button>
               </div>
             </article>
 
@@ -148,18 +183,18 @@
               <div class="step-heading">
                 <span class="step-count">4</span>
                 <div>
-                  <p class="eyebrow">E-mail</p>
-                  <h2><i data-lucide="mail-check"></i> Gerar acionamento por e-mail</h2>
+                  <p class="eyebrow" data-i18n="email">E-mail</p>
+                  <h2><i data-lucide="mail-check"></i> <span data-i18n="generateEmail">Gerar acionamento por e-mail</span></h2>
                 </div>
               </div>
               <div class="auto-button-grid">
-                <button class="copy-action auto-copy-action" type="button" data-copy-kind="subject" data-preview-kind="subject"><i data-lucide="text-cursor-input"></i> Assunto</button>
-                <button class="copy-action auto-copy-action" type="button" data-copy-kind="email" data-preview-kind="email"><i data-lucide="mail"></i> E-mail</button>
-                <button class="copy-action auto-copy-action" type="button" data-copy-kind="recipients" data-preview-kind="recipients"><i data-lucide="users"></i> Destinatários</button>
+                <button class="copy-action auto-copy-action" type="button" data-copy-kind="subject" data-preview-kind="subject"><i data-lucide="text-cursor-input"></i> <span data-i18n="subject">Assunto</span></button>
+                <button class="copy-action auto-copy-action" type="button" data-copy-kind="email" data-preview-kind="email"><i data-lucide="mail"></i> <span data-i18n="email">E-mail</span></button>
+                <button class="copy-action auto-copy-action" type="button" data-copy-kind="recipients" data-preview-kind="recipients"><i data-lucide="users"></i> <span data-i18n="recipients">Destinatários</span></button>
               </div>
               <div class="auto-actions">
-                <button class="ghost-button auto-prev" type="button"><i data-lucide="arrow-left"></i> Voltar</button>
-                <button class="primary-button auto-next" type="button"><i data-lucide="arrow-right"></i> Próximo passo</button>
+                <button class="ghost-button auto-prev" type="button"><i data-lucide="arrow-left"></i> <span data-i18n="back">Voltar</span></button>
+                <button class="primary-button auto-next" type="button"><i data-lucide="arrow-right"></i> <span data-i18n="nextStep">Próximo passo</span></button>
               </div>
             </article>
 
@@ -167,13 +202,13 @@
               <div class="step-heading">
                 <span class="step-count">5</span>
                 <div>
-                  <p class="eyebrow">Finalização</p>
-                  <h2><i data-lucide="circle-check-big"></i> Concluir atendimento</h2>
+                  <p class="eyebrow" data-i18n="finalization">Finalização</p>
+                  <h2><i data-lucide="circle-check-big"></i> <span data-i18n="concludeService">Concluir atendimento</span></h2>
                 </div>
               </div>
               <div class="auto-actions">
-                <button class="ghost-button auto-prev" type="button"><i data-lucide="arrow-left"></i> Voltar</button>
-                <button class="primary-button" id="autoFinishButton" type="button"><i data-lucide="rotate-ccw"></i> Finalizar e voltar ao início</button>
+                <button class="ghost-button auto-prev" type="button"><i data-lucide="arrow-left"></i> <span data-i18n="back">Voltar</span></button>
+                <button class="primary-button" id="autoFinishButton" type="button"><i data-lucide="rotate-ccw"></i> <span data-i18n="finishAndReturn">Finalizar e voltar ao início</span></button>
               </div>
             </article>
           </section>
@@ -185,12 +220,12 @@
           <div class="brand">
             <span class="brand-mark" aria-hidden="true"><i data-lucide="layers-3"></i></span>
             <div>
-              <p class="eyebrow">Fluxo massivas</p>
-              <h1>NOC IP TOOL</h1>
+              <p class="eyebrow" data-i18n="massivasFlow">Fluxo massivas</p>
+              <h1 data-i18n="appTitle">NOC IP TOOL</h1>
             </div>
           </div>
           <p class="status" id="massivasStatus" role="status" aria-live="polite">Passo 1 de 3</p>
-          <button class="ghost-button" id="massivasHomeButton" type="button"><i data-lucide="house"></i> Início</button>
+          <button class="ghost-button" id="massivasHomeButton" type="button"><i data-lucide="house"></i> <span data-i18n="home">Início</span></button>
         </nav>
 
         <div class="massivas-layout">
@@ -198,9 +233,9 @@
             <div class="massivas-progress" aria-label="Progresso do fluxo massivas">
               <div class="progress-track"><span id="massivasProgressFill"></span></div>
               <div class="massivas-step-nav">
-                <button type="button" class="massivas-step-nav-item is-active" data-massivas-step-nav="1">1 <span>Alarmes</span></button>
-                <button type="button" class="massivas-step-nav-item" data-massivas-step-nav="2">2 <span>Chamado</span></button>
-                <button type="button" class="massivas-step-nav-item" data-massivas-step-nav="3">3 <span>Finalizar</span></button>
+                <button type="button" class="massivas-step-nav-item is-active" data-massivas-step-nav="1">1 <span data-i18n="alarms">Alarmes</span></button>
+                <button type="button" class="massivas-step-nav-item" data-massivas-step-nav="2">2 <span data-i18n="internalTicket">Chamado</span></button>
+                <button type="button" class="massivas-step-nav-item" data-massivas-step-nav="3">3 <span data-i18n="finalization">Finalizar</span></button>
               </div>
             </div>
 
@@ -208,36 +243,56 @@
               <div class="step-heading">
                 <span class="step-count">1</span>
                 <div>
-                  <p class="eyebrow">Alarmes e abertura</p>
-                  <h2><i data-lucide="radio-receiver"></i> Colar alarmes e organizar hosts</h2>
+                  <p class="eyebrow" data-i18n="bdeskOpening">Alarmes e abertura</p>
+                  <h2><i data-lucide="radio-receiver"></i> <span data-i18n="pasteAlarmsOrganize">Colar alarmes e organizar hosts</span></h2>
                 </div>
               </div>
               <label class="field wide">
-                <span>Alarmes da massiva</span>
-                <textarea id="massivasDebugAlarms" rows="8" placeholder="Cole os alarmes aqui para organizar por host"></textarea>
+                <span data-i18n="massivasAlarms">Alarmes da massiva</span>
+                <textarea id="massivasDebugAlarms" rows="8" data-i18n-placeholder="massivasAlarmsPlaceholder" placeholder="Cole os alarmes aqui para organizar por host"></textarea>
               </label>
               <label class="field wide">
-                <span>Hosts separados automaticamente</span>
-                <textarea id="massivasHosts" rows="5" placeholder="Os hosts identificados aparecem aqui" readonly></textarea>
+                <span data-i18n="separatedHosts">Hosts separados automaticamente</span>
+                <textarea id="massivasHosts" rows="5" data-i18n-placeholder="hostsPlaceholder" placeholder="Os hosts identificados aparecem aqui" readonly></textarea>
               </label>
               <div class="massivas-topology-panel">
                 <div class="massivas-topology-heading">
-                  <span>Topologia da massiva</span>
-                  <small>Origem, equipamento B e interfaces identificadas</small>
+                  <div class="massivas-topology-title">
+                    <span class="pulse-dot"></span>
+                    <span data-i18n="topology">Topologia Backbone</span>
+                    <span class="topology-live-badge">NOC LIVE</span>
+                  </div>
+                  <div class="topology-legend">
+                    <span class="topo-tag pe">🔀 PE Router</span>
+                    <span class="topo-tag core">🌐 Core / CO</span>
+                    <span class="topo-tag sw">🔌 Switch</span>
+                    <span class="topo-tag dwdm">📡 DWDM / TX</span>
+                    <span class="topo-tag trunk">🔗 Trunk</span>
+                    <span class="topo-tag alarm">🚨 Alarme</span>
+                  </div>
+                  <div class="topology-controls">
+                    <button type="button" class="topo-btn-icon" onclick="topoZoomIn()" title="Zoom +">+</button>
+                    <button type="button" class="topo-btn-icon" onclick="topoZoomOut()" title="Zoom -">−</button>
+                    <button type="button" class="topo-btn-icon" onclick="topoZoomFit()" title="Ajustar">⊡</button>
+                    <button type="button" class="topo-btn-icon" onclick="topoCenter()" title="Centralizar">⊕</button>
+                    <button type="button" class="topo-btn-icon" onclick="topoRelayout()" title="Reorganizar Layout">🔄</button>
+                    <a href="topo/topo.html" target="_blank" class="topo-btn-link" title="Abrir em página separada">🧪 Tela Cheia</a>
+                  </div>
                 </div>
                 <div id="massivasTopologyGraph" role="img" aria-label="Topologia dinâmica da massiva"></div>
                 <canvas id="massivasTopologyCanvas" width="960" height="300" aria-hidden="true" hidden></canvas>
+                <div id="massivasTopologyHud" class="massivas-topology-hud" hidden></div>
               </div>
               <label class="field wide">
-                <span>Texto de abertura da massiva</span>
-                <textarea id="massivasOpeningOutput" rows="10" readonly placeholder="A abertura sera gerada a partir dos alarmes colados"></textarea>
+                <span data-i18n="openingTextMassiva">Texto de abertura da massiva</span>
+                <textarea id="massivasOpeningOutput" rows="10" readonly data-i18n-placeholder="openingPlaceholder" placeholder="A abertura sera gerada a partir dos alarmes colados"></textarea>
               </label>
               <div class="auto-button-grid is-conditional">
-                <button class="copy-action compact-copy-action" type="button" data-copy-kind="massivas-opening" data-preview-kind="massivas-opening"><i data-lucide="copy"></i> Copiar abertura e topologia</button>
+                <button class="copy-action compact-copy-action" type="button" data-copy-kind="massivas-opening" data-preview-kind="massivas-opening"><i data-lucide="copy"></i> <span data-i18n="copyOpeningTopology">Copiar abertura e topologia</span></button>
               </div>
               <div class="massivas-actions">
-                <button class="ghost-button massivas-prev" type="button"><i data-lucide="arrow-left"></i> Voltar</button>
-                <button class="primary-button massivas-next" type="button"><i data-lucide="arrow-right"></i> Ir para chamado</button>
+                <button class="ghost-button massivas-prev" type="button"><i data-lucide="arrow-left"></i> <span data-i18n="back">Voltar</span></button>
+                <button class="primary-button massivas-next" type="button"><i data-lucide="arrow-right"></i> <span data-i18n="goToTicket">Ir para chamado</span></button>
               </div>
             </article>
 
@@ -245,51 +300,51 @@
               <div class="step-heading">
                 <span class="step-count">2</span>
                 <div>
-                  <p class="eyebrow">Chamado</p>
-                  <h2><i data-lucide="badge-check"></i> Preparar textos da massiva</h2>
+                  <p class="eyebrow" data-i18n="internalTicket">Chamado</p>
+                  <h2><i data-lucide="badge-check"></i> <span data-i18n="prepareMassivaTexts">Preparar textos da massiva</span></h2>
                 </div>
               </div>
               <div class="massivas-subject-block">
                 <label class="field">
-                  <span>Assunto Bdesk da massiva</span>
-                  <textarea id="massivasBdeskSubject" rows="2" placeholder="Cole o assunto Bdesk completo para gerar o reconhecimento com Aut Bdesk:#"></textarea>
+                  <span data-i18n="bdeskSubjectMassiva">Assunto Bdesk da massiva</span>
+                  <textarea id="massivasBdeskSubject" rows="2" data-i18n-placeholder="bdeskSubjectPlaceholder" placeholder="Cole o assunto Bdesk completo para gerar o reconhecimento com Aut Bdesk:#"></textarea>
                 </label>
-                <button class="copy-action compact-copy-action" type="button" data-copy-kind="massivas-recognize" data-preview-kind="massivas-recognize"><i data-lucide="badge-check"></i> Reconhecer alarmes da massiva</button>
+                <button class="copy-action compact-copy-action" type="button" data-copy-kind="massivas-recognize" data-preview-kind="massivas-recognize"><i data-lucide="badge-check"></i> <span data-i18n="recognizeMassivaAlarms">Reconhecer alarmes da massiva</span></button>
               </div>
               <div class="field-row two">
                 <label class="field">
-                  <span>Telefone/Grupo</span>
-                  <input id="massivasUpdatePhoneGroup" type="text" placeholder="Telefone, grupo ou canal acionado">
+                  <span data-i18n="phoneGroup">Telefone/Grupo</span>
+                  <input id="massivasUpdatePhoneGroup" type="text" data-i18n-placeholder="phoneGroupPlaceholder" placeholder="Telefone, grupo ou canal acionado">
                 </label>
                 <label class="field">
-                  <span>Chamado TX / INFRA</span>
-                  <input id="massivasUpdateTxInfraTicket" type="text" placeholder="Chamado ou protocolo da área acionada">
+                  <span data-i18n="txInfraTicket">Chamado TX / INFRA</span>
+                  <input id="massivasUpdateTxInfraTicket" type="text" data-i18n-placeholder="txInfraPlaceholder" placeholder="Chamado ou protocolo da área acionada">
                 </label>
               </div>
               <div class="field-row three">
                 <label class="field">
-                  <span>Falado com</span>
-                  <input id="massivasUpdateSpokenWith" type="text" placeholder="NOC / TX / Parceiro">
+                  <span data-i18n="spokenWith">Falado com</span>
+                  <input id="massivasUpdateSpokenWith" type="text" data-i18n-placeholder="spokenWithPlaceholder" placeholder="NOC / TX / Parceiro">
                 </label>
                 <label class="field">
-                  <span>Previsão</span>
-                  <input id="massivasUpdateForecast" type="text" value="Sem previsão">
+                  <span data-i18n="forecast">Previsão</span>
+                  <input id="massivasUpdateForecast" type="text" data-i18n-placeholder="forecastPlaceholder" value="Sem previsão">
                 </label>
                 <label class="field">
-                  <span>Próxima ação</span>
-                  <input id="massivasUpdateNextAction" type="text" placeholder="Aguardar retorno e atualizar chamado">
+                  <span data-i18n="nextAction">Próxima ação</span>
+                  <input id="massivasUpdateNextAction" type="text" data-i18n-placeholder="nextActionPlaceholder" placeholder="Aguardar retorno e atualizar chamado">
                 </label>
               </div>
               <label class="field wide">
-                <span>O que foi falado</span>
-                <textarea id="massivasUpdateSpokenText" rows="3" placeholder="Descreva o retorno, orientacao ou evidencia informada"></textarea>
+                <span data-i18n="whatWasSpoken">O que foi falado</span>
+                <textarea id="massivasUpdateSpokenText" rows="3" data-i18n-placeholder="whatWasSpokenPlaceholder" placeholder="Descreva o retorno, orientacao ou evidencia informada"></textarea>
               </label>
               <div class="auto-button-grid is-conditional">
-                <button class="copy-action compact-copy-action" type="button" data-copy-kind="massivas-update" data-preview-kind="massivas-update"><i data-lucide="clipboard-list"></i> Atualização massiva</button>
+                <button class="copy-action compact-copy-action" type="button" data-copy-kind="massivas-update" data-preview-kind="massivas-update"><i data-lucide="clipboard-list"></i> <span data-i18n="massivaUpdate">Atualização massiva</span></button>
               </div>
               <div class="massivas-actions">
-                <button class="ghost-button massivas-prev" type="button"><i data-lucide="arrow-left"></i> Voltar</button>
-                <button class="primary-button massivas-next" type="button"><i data-lucide="arrow-right"></i> Ir para finalizacao</button>
+                <button class="ghost-button massivas-prev" type="button"><i data-lucide="arrow-left"></i> <span data-i18n="back">Voltar</span></button>
+                <button class="primary-button massivas-next" type="button"><i data-lucide="arrow-right"></i> <span data-i18n="goToFinalization">Ir para finalizacao</span></button>
               </div>
             </article>
 
@@ -297,23 +352,23 @@
               <div class="step-heading">
                 <span class="step-count">3</span>
                 <div>
-                  <p class="eyebrow">ALPHA/TESTES</p>
-                  <h2><i data-lucide="server"></i> Colar hosts, alarmes e debug</h2>
+                  <p class="eyebrow" data-i18n="alphaTests">ALPHA/TESTES</p>
+                  <h2><i data-lucide="server"></i> <span data-i18n="pasteHostsAlarmsDebug">Colar hosts, alarmes e debug</span></h2>
                 </div>
               </div>
               <label class="field wide">
-                <span>Hosts da massiva</span>
-                <textarea id="massivasHostsAlphaHidden" rows="8" placeholder="Cole um host por linha"></textarea>
+                <span data-i18n="hostsMassiva">Hosts da massiva</span>
+                <textarea id="massivasHostsAlphaHidden" rows="8" data-i18n-placeholder="hostsPlaceholder" placeholder="Cole um host por linha"></textarea>
               </label>
               <label class="field wide">
-                <span>Alarmes / debug manual</span>
-                <textarea id="massivasDebugAlarmsAlphaHidden" rows="8" placeholder="Cole aqui os alarmes retornados pelo Zabbix para testar a análise sem consultar a API"></textarea>
+                <span data-i18n="alarmsDebugManual">Alarmes / debug manual</span>
+                <textarea id="massivasDebugAlarmsAlphaHidden" rows="8" data-i18n-placeholder="debugPlaceholder" placeholder="Cole aqui os alarmes retornados pelo Zabbix para testar a análise sem consultar a API"></textarea>
               </label>
-              <p class="massivas-copy">Ao consultar, a ferramenta busca o Zabbix em modo somente leitura. Se houver alarmes colados, usa o debug manual.</p>
+              <p class="massivas-copy" data-i18n="zabbixNote">Ao consultar, a ferramenta busca o Zabbix em modo somente leitura. Se houver alarmes colados, usa o debug manual.</p>
               <div class="massivas-actions">
-                <button class="ghost-button massivas-prev" type="button"><i data-lucide="arrow-left"></i> Voltar</button>
-                <button class="primary-button" id="massivasConfirmStep1" type="button"><i data-lucide="check"></i> Consultar Zabbix e avançar</button>
-                <button class="ghost-button" id="massivasDebugButton" type="button"><i data-lucide="bug"></i> Testar análise manual</button>
+                <button class="ghost-button massivas-prev" type="button"><i data-lucide="arrow-left"></i> <span data-i18n="back">Voltar</span></button>
+                <button class="primary-button" id="massivasConfirmStep1" type="button"><i data-lucide="check"></i> <span data-i18n="consultZabbixAdvance">Consultar Zabbix e avançar</span></button>
+                <button class="ghost-button" id="massivasDebugButton" type="button"><i data-lucide="bug"></i> <span data-i18n="testManualAnalysis">Testar análise manual</span></button>
               </div>
             </article>
 
@@ -321,18 +376,18 @@
               <div class="step-heading">
                 <span class="step-count">4</span>
                 <div>
-                  <p class="eyebrow">Resultado ALPHA/TESTES</p>
-                  <h2><i data-lucide="scan-search"></i> Revisar análise gerada</h2>
+                  <p class="eyebrow" data-i18n="alphaTests">Resultado ALPHA/TESTES</p>
+                  <h2><i data-lucide="scan-search"></i> <span data-i18n="reviewAnalysis">Revisar análise gerada</span></h2>
                 </div>
               </div>
               <label class="field wide">
-                <span>Análise da massiva - ALPHA/TESTES</span>
+                <span data-i18n="massivaAnalysis">Análise da massiva - ALPHA/TESTES</span>
                 <textarea id="massivasSummary" rows="10" readonly></textarea>
               </label>
-              <p class="massivas-copy">O texto começa com ### ANÁLISE DA MASSIVA ### e já traz conclusão, direcionamento e evidências.</p>
+              <p class="massivas-copy" data-i18n="analysisTextNote">O texto começa com ### ANÁLISE DA MASSIVA ### e já traz conclusão, direcionamento e evidências.</p>
               <div class="massivas-actions">
-                <button class="ghost-button massivas-prev" type="button"><i data-lucide="arrow-left"></i> Voltar</button>
-                <button class="primary-button massivas-next" type="button"><i data-lucide="arrow-right"></i> Próximo passo</button>
+                <button class="ghost-button massivas-prev" type="button"><i data-lucide="arrow-left"></i> <span data-i18n="back">Voltar</span></button>
+                <button class="primary-button massivas-next" type="button"><i data-lucide="arrow-right"></i> <span data-i18n="nextStep">Próximo passo</span></button>
               </div>
             </article>
 
@@ -340,14 +395,14 @@
               <div class="step-heading">
                 <span class="step-count">3</span>
                 <div>
-                  <p class="eyebrow">Finalização</p>
-                  <h2><i data-lucide="rotate-ccw"></i> Concluir e reiniciar o fluxo</h2>
+                  <p class="eyebrow" data-i18n="finalization">Finalização</p>
+                  <h2><i data-lucide="rotate-ccw"></i> <span data-i18n="concludeRestart">Concluir e reiniciar o fluxo</span></h2>
                 </div>
               </div>
-              <p class="massivas-copy">Use este passo para finalizar a massiva atual e voltar ao início do fluxo com uma nova base.</p>
+              <p class="massivas-copy" data-i18n="concludeRestart">Use este passo para finalizar a massiva atual e voltar ao início do fluxo com uma nova base.</p>
               <div class="massivas-actions">
-                <button class="ghost-button massivas-prev" type="button"><i data-lucide="arrow-left"></i> Voltar</button>
-                <button class="primary-button" id="massivasFinishButton" type="button"><i data-lucide="rotate-ccw"></i> Finalizar e voltar ao início</button>
+                <button class="ghost-button massivas-prev" type="button"><i data-lucide="arrow-left"></i> <span data-i18n="back">Voltar</span></button>
+                <button class="primary-button" id="massivasFinishButton" type="button"><i data-lucide="rotate-ccw"></i> <span data-i18n="finishReturnStart">Finalizar e voltar ao início</span></button>
               </div>
             </article>
           </section>
@@ -359,15 +414,15 @@
           <div class="brand">
             <span class="brand-mark" aria-hidden="true"><i data-lucide="radio-tower"></i></span>
             <div>
-              <p class="eyebrow">Developed by Alexsander</p>
-              <h1>NOC IP TOOL</h1>
+              <p class="eyebrow" data-i18n="developedBy">Developed by Alexsander</p>
+              <h1 data-i18n="appTitle">NOC IP TOOL</h1>
             </div>
           </div>
 
-          <p class="status" id="status" role="status" aria-live="polite">Pronto para gerar.</p>
+          <p class="status" id="status" role="status" aria-live="polite" data-i18n="readyToGenerate">Pronto para gerar.</p>
           <div class="navbar-actions">
-            <button class="ghost-button" id="manualHomeButton" type="button"><i data-lucide="house"></i> Início</button>
-            <button class="ghost-button" id="manualAutoButton" type="button"><i data-lucide="wand-sparkles"></i> Fluxo auto</button>
+            <button class="ghost-button" id="manualHomeButton" type="button"><i data-lucide="house"></i> <span data-i18n="home">Início</span></button>
+            <button class="ghost-button" id="manualAutoButton" type="button"><i data-lucide="wand-sparkles"></i> <span data-i18n="autoFlow">Fluxo auto</span></button>
           </div>
         </nav>
 
@@ -375,43 +430,43 @@
           <form class="input-panel" id="generatorForm">
             <section class="panel-section quick-section">
               <label class="field wide">
-                  <span>Alarmes, evento ou evidência</span>
-                <textarea id="events" rows="7" placeholder="Cole os alarmes aqui. A extração acontece automaticamente."></textarea>
+                  <span data-i18n="alarmsEventEvidence">Alarmes, evento ou evidência</span>
+                <textarea id="events" rows="7" data-i18n-placeholder="alarmsEventPlaceholder" placeholder="Cole os alarmes aqui. A extração acontece automaticamente."></textarea>
               </label>
               <div class="field-row three compact-fields">
                 <label class="field">
-                  <span>Operadora</span>
+                  <span data-i18n="carrier">Operadora</span>
                   <input list="partnersList" id="carrier" type="text" value="CLARO" autocomplete="off">
                 </label>
                 <label class="field">
-                  <span>Chamado interno</span>
-                  <input id="internalTicket" type="text" placeholder="588604">
+                  <span data-i18n="internalTicket">Chamado interno</span>
+                  <input id="internalTicket" type="text" data-i18n-placeholder="internalTicketPlaceholder" placeholder="588604">
                 </label>
                 <label class="field">
-                  <span>Protocolo externo</span>
-                  <input id="externalTicket" type="text" placeholder="EVE260500076687">
+                  <span data-i18n="externalTicket">Protocolo externo</span>
+                  <input id="externalTicket" type="text" data-i18n-placeholder="externalTicketPlaceholder" placeholder="EVE260500076687">
                 </label>
               </div>
             </section>
 
             <details class="advanced-drawer">
-              <summary>Campos detectados e ajustes</summary>
+              <summary data-i18n="detectedFieldsAdjustments">Campos detectados e ajustes</summary>
               <div class="advanced-grid">
                 <section class="panel-section">
-                  <h2><i data-lucide="file-text"></i> Descrição Bdesk</h2>
+                  <h2><i data-lucide="file-text"></i> <span data-i18n="bdeskDescription">Descrição Bdesk</span></h2>
                   <div class="field-row four">
                     <label class="field">
-                      <span>Tipo de falha</span>
+                      <span data-i18n="failureType">Tipo de falha</span>
                       <input list="failureTypesList" id="failureType" type="text" value="INDISPONIBILIDADE" autocomplete="off">
                       <datalist id="failureTypesList"></datalist>
                     </label>
                     <label class="field">
-                      <span>Parceiro</span>
+                      <span data-i18n="partner">Parceiro</span>
                       <input list="partnersList" id="partner" type="text" autocomplete="off">
                       <datalist id="partnersList"></datalist>
                     </label>
                     <label class="field">
-                      <span>Fibra</span>
+                      <span data-i18n="fiber">Fibra</span>
                       <select id="fiber">
                         <option>ONLY</option>
                         <option>WORK</option>
@@ -419,87 +474,87 @@
                       </select>
                     </label>
                     <label class="field">
-                      <span>Modo</span>
+                      <span data-i18n="mode">Modo</span>
                       <select id="descriptionMode">
-                        <option value="auto">Automático</option>
-                        <option value="single">Ponta única</option>
-                        <option value="route">Duas pontas</option>
+                        <option value="auto" data-i18n="auto">Automático</option>
+                        <option value="single" data-i18n="singleEnd">Ponta única</option>
+                        <option value="route" data-i18n="twoEnds">Duas pontas</option>
                       </select>
                     </label>
                   </div>
                   <div class="field-row two">
                     <label class="field">
-                      <span>Hostname A</span>
-                      <input id="hostA" type="text" placeholder="BR-RJ-RJO-CTL-TP-02" autocomplete="off">
+                      <span data-i18n="hostnameA">Hostname A</span>
+                      <input id="hostA" type="text" data-i18n-placeholder="hostnameAPlaceholder" placeholder="BR-RJ-RJO-CTL-TP-02" autocomplete="off">
                     </label>
                     <label class="field">
-                      <span>Hostname B</span>
-                      <input id="hostB" type="text" placeholder="BR-SP-SPO-CTL-TP-04" autocomplete="off">
+                      <span data-i18n="hostnameB">Hostname B</span>
+                      <input id="hostB" type="text" data-i18n-placeholder="hostnameBPlaceholder" placeholder="BR-SP-SPO-CTL-TP-04" autocomplete="off">
                     </label>
                   </div>
                 </section>
 
                 <section class="panel-section">
-                  <h2><i data-lucide="route"></i> Dados do circuito</h2>
+                  <h2><i data-lucide="route"></i> <span data-i18n="circuitData">Dados do circuito</span></h2>
                   <div class="field-row two">
                     <label class="field">
-                      <span>Designações</span>
-                      <textarea id="designations" rows="3" placeholder="CAP:TIM:RJOCOACAP287332-CID:581006"></textarea>
+                      <span data-i18n="designations">Designações</span>
+                      <textarea id="designations" rows="3" data-i18n-placeholder="designationsPlaceholder" placeholder="CAP:TIM:RJOCOACAP287332-CID:581006"></textarea>
                     </label>
                     <label class="field">
-                      <span>Identificação Bdesk</span>
-                      <textarea id="bdeskTitle" rows="3" placeholder="RJ::IND::RIO DE JANEIRO_CTL&lt;&gt;SAO PAULO_CTL::ONLY::TIM"></textarea>
+                      <span data-i18n="bdeskIdentification">Identificação Bdesk</span>
+                      <textarea id="bdeskTitle" rows="3" data-i18n-placeholder="bdeskTitlePlaceholder" placeholder="RJ::IND::RIO DE JANEIRO_CTL<>SAO PAULO_CTL::ONLY::TIM"></textarea>
                     </label>
                   </div>
                   <div class="field-row four">
                     <label class="field">
-                      <span>Origem</span>
-                      <input id="origin" type="text" placeholder="RIO DE JANEIRO">
+                      <span data-i18n="origin">Origem</span>
+                      <input id="origin" type="text" data-i18n-placeholder="originPlaceholder" placeholder="RIO DE JANEIRO">
                     </label>
                     <label class="field">
-                      <span>Destino</span>
-                      <input id="destination" type="text" placeholder="SAO PAULO">
+                      <span data-i18n="destination">Destino</span>
+                      <input id="destination" type="text" data-i18n-placeholder="destinationPlaceholder" placeholder="SAO PAULO">
                     </label>
                     <label class="field">
-                      <span>Horário da falha</span>
-                      <input id="failureTime" type="text" placeholder="15/05/2026 13:54">
+                      <span data-i18n="failureTime">Horário da falha</span>
+                      <input id="failureTime" type="text" data-i18n-placeholder="failureTimePlaceholder" placeholder="15/05/2026 13:54">
                     </label>
                   </div>
                 </section>
 
                 <section class="panel-section">
-                  <h2><i data-lucide="clipboard-list"></i> Carimbo NOC</h2>
+                  <h2><i data-lucide="clipboard-list"></i> <span data-i18n="nocStamp">Carimbo NOC</span></h2>
                   <div class="field-row two">
                     <label class="field">
-                      <span>Sintoma/reclamação</span>
+                      <span data-i18n="symptomComplaint">Sintoma/reclamação</span>
                       <input id="symptom" type="text" value="Capacidade indisponível">
                     </label>
                     <label class="field">
-                      <span>Diagnóstico</span>
+                      <span data-i18n="diagnosis">Diagnóstico</span>
                       <input id="diagnosis" type="text" value="Provável falha na operadora parceira">
                     </label>
                   </div>
                   <div class="field-row three">
                     <label class="field">
-                      <span>Facilidades</span>
+                      <span data-i18n="facilities">Facilidades</span>
                       <input id="facilities" type="text" value="Segue abaixo">
                     </label>
                     <label class="field">
-                      <span>Ação tomada</span>
+                      <span data-i18n="actionTaken">Ação tomada</span>
                       <input id="actionTaken" type="text">
                     </label>
                     <label class="field">
-                      <span>Próxima ação</span>
+                      <span data-i18n="nextAction">Próxima ação</span>
                       <input id="nextAction" type="text">
                     </label>
                   </div>
                   <div class="field-row four">
                     <label class="field">
-                      <span>Falado com</span>
+                      <span data-i18n="spokenWith">Falado com</span>
                       <input id="spokenWith" type="text">
                     </label>
                     <label class="field">
-                      <span>Canal</span>
+                      <span data-i18n="channel">Canal</span>
                       <select id="channel">
                         <option>Email</option>
                         <option>WhatsApp</option>
@@ -509,39 +564,39 @@
                       </select>
                     </label>
                     <label class="field">
-                      <span>Previsão</span>
+                      <span data-i18n="forecast">Previsão</span>
                       <input id="forecast" type="text" value="Sem previsão">
                     </label>
                     <label class="field">
-                      <span>Telefone/canal extra</span>
-                      <input id="phoneChannel" type="text" placeholder="0800 880 7000">
+                      <span data-i18n="phoneExtra">Telefone/canal extra</span>
+                      <input id="phoneChannel" type="text" data-i18n-placeholder="phoneExtraPlaceholder" placeholder="0800 880 7000">
                     </label>
                   </div>
                 </section>
 
                 <section class="panel-section">
-                  <h2><i data-lucide="send"></i> E-mail e cobrança</h2>
+                  <h2><i data-lucide="send"></i> <span data-i18n="emailBilling">E-mail e cobrança</span></h2>
                   <div class="field-row two">
                     <label class="field">
-                      <span>Destinatários</span>
+                      <span data-i18n="recipients">Destinatários</span>
                       <textarea id="recipients" rows="3"></textarea>
                     </label>
                     <label class="field">
-                      <span>Cópia</span>
+                      <span data-i18n="copyTo">Cópia</span>
                       <textarea id="copyTo" rows="3">noc-l@alloha.com</textarea>
                     </label>
                   </div>
                   <div class="field-row three">
                     <label class="field">
-                      <span>Saudação</span>
+                      <span data-i18n="greeting">Saudação</span>
                       <select id="greeting">
-                        <option>Bom dia</option>
-                        <option selected>Boa tarde</option>
-                        <option>Boa noite</option>
+                        <option data-i18n="goodMorning">Bom dia</option>
+                        <option selected data-i18n="goodAfternoon">Boa tarde</option>
+                        <option data-i18n="goodEvening">Boa noite</option>
                       </select>
                     </label>
                     <label class="field">
-                      <span>Tipo de indisponibilidade</span>
+                      <span data-i18n="outageType">Tipo de indisponibilidade</span>
                       <input id="outageText" type="text" value="transporte de capacidade indisponível">
                     </label>
                   </div>
@@ -553,33 +608,33 @@
           <aside class="output-panel" aria-label="Copiar campos gerados">
             <div class="copy-board">
               <section class="copy-section animate__animated animate__fadeInUp">
-                <h2><i data-lucide="copy"></i> Copiar modelos</h2>
+                <h2><i data-lucide="copy"></i> <span data-i18n="copyModels">Copiar modelos</span></h2>
                 <div class="copy-grid">
-                  <button class="copy-action" type="button" data-copy-kind="description" data-preview-kind="description" title="Copiar descrição Bdesk"><i data-lucide="file-text"></i> Bdesk</button>
-                  <button class="copy-action" type="button" data-copy-kind="recognize" data-preview-kind="recognize" title="Copiar reconhecimento dos alarmes"><i data-lucide="badge-check"></i> Reconhecer alarmes</button>
-                  <button class="copy-action" type="button" data-copy-kind="opening" data-preview-kind="opening" title="Copiar abertura NOC"><i data-lucide="clipboard-list"></i> Abertura</button>
-                  <button class="copy-action" type="button" data-copy-kind="update" data-preview-kind="update" title="Copiar atualização NOC"><i data-lucide="refresh-cw"></i> Atualização</button>
-                  <button class="copy-action" type="button" data-copy-kind="email" data-preview-kind="email" title="Copiar e-mail ou solicitação"><i data-lucide="mail"></i> E-mail</button>
-                  <button class="copy-action" type="button" data-copy-kind="contact" data-preview-kind="contact" title="Copiar contato do parceiro"><i data-lucide="contact"></i> Contato</button>
+                  <button class="copy-action" type="button" data-copy-kind="description" data-preview-kind="description" title="Copiar descrição Bdesk"><i data-lucide="file-text"></i> <span data-i18n="bdeskDescription">Bdesk</span></button>
+                  <button class="copy-action" type="button" data-copy-kind="recognize" data-preview-kind="recognize" title="Copiar reconhecimento dos alarmes"><i data-lucide="badge-check"></i> <span data-i18n="recognizeAlarms">Reconhecer alarmes</span></button>
+                  <button class="copy-action" type="button" data-copy-kind="opening" data-preview-kind="opening" title="Copiar abertura NOC"><i data-lucide="clipboard-list"></i> <span data-i18n="opening">Abertura</span></button>
+                  <button class="copy-action" type="button" data-copy-kind="update" data-preview-kind="update" title="Copiar atualização NOC"><i data-lucide="refresh-cw"></i> <span data-i18n="update">Atualização</span></button>
+                  <button class="copy-action" type="button" data-copy-kind="email" data-preview-kind="email" title="Copiar e-mail ou solicitação"><i data-lucide="mail"></i> <span data-i18n="email">E-mail</span></button>
+                  <button class="copy-action" type="button" data-copy-kind="contact" data-preview-kind="contact" title="Copiar contato do parceiro"><i data-lucide="contact"></i> <span data-i18n="contact">Contato</span></button>
                 </div>
               </section>
 
               <section class="copy-section animate__animated animate__fadeInUp">
-                <h2><i data-lucide="messages-square"></i> Mensagens padrão</h2>
+                <h2><i data-lucide="messages-square"></i> <span data-i18n="standardMessages">Mensagens padrão</span></h2>
                 <div class="copy-grid">
-                  <button class="copy-action" type="button" data-copy-kind="charge-0" data-preview-kind="charge-0" title="Copiar pedido de atualização"><i data-lucide="message-circle-question"></i> Atualização?</button>
-                  <button class="copy-action" type="button" data-copy-kind="charge-1" data-preview-kind="charge-1" title="Copiar circuito indisponível"><i data-lucide="circle-alert"></i> Indisponível</button>
-                  <button class="copy-action" type="button" data-copy-kind="charge-2" data-preview-kind="charge-2" title="Copiar atualização para grupo"><i data-lucide="messages-square"></i> Prezados?</button>
-                  <button class="copy-action" type="button" data-copy-kind="charge-3" data-preview-kind="charge-3" title="Copiar cobrança de retorno"><i data-lucide="reply"></i> Retorno</button>
-                  <button class="copy-action" type="button" data-copy-kind="charge-4" data-preview-kind="charge-4" title="Copiar solicitação de RFO"><i data-lucide="search-check"></i> RFO?</button>
+                  <button class="copy-action" type="button" data-copy-kind="charge-0" data-preview-kind="charge-0" title="Copiar pedido de atualização"><i data-lucide="message-circle-question"></i> <span data-i18n="updateQuestion">Atualização?</span></button>
+                  <button class="copy-action" type="button" data-copy-kind="charge-1" data-preview-kind="charge-1" title="Copiar circuito indisponível"><i data-lucide="circle-alert"></i> <span data-i18n="unavailable">Indisponível</span></button>
+                  <button class="copy-action" type="button" data-copy-kind="charge-2" data-preview-kind="charge-2" title="Copiar atualização para grupo"><i data-lucide="messages-square"></i> <span data-i18n="dearAll">Prezados?</span></button>
+                  <button class="copy-action" type="button" data-copy-kind="charge-3" data-preview-kind="charge-3" title="Copiar cobrança de retorno"><i data-lucide="reply"></i> <span data-i18n="returnMsg">Retorno</span></button>
+                  <button class="copy-action" type="button" data-copy-kind="charge-4" data-preview-kind="charge-4" title="Copiar solicitação de RFO"><i data-lucide="search-check"></i> <span data-i18n="rfoQuestion">RFO?</span></button>
                 </div>
               </section>
 
               <section class="preview-panel animate__animated animate__fadeInUp" aria-label="Prévia do texto">
                 <div class="preview-heading">
-                  <h2 id="previewTitle"><i data-lucide="eye"></i> Prévia</h2>
+                  <h2 id="previewTitle"><i data-lucide="eye"></i> <span data-i18n="preview">Prévia</span></h2>
                 </div>
-                <pre id="previewText">Passe o mouse em um botão para ver uma prévia.</pre>
+                <pre id="previewText" data-i18n="previewPlaceholder">Passe o mouse em um botão para ver uma prévia.</pre>
               </section>
             </div>
 
@@ -603,39 +658,93 @@
       <form class="parameters-card" method="dialog">
         <div class="parameters-header">
           <div>
-            <p class="eyebrow">Parâmetros padrão</p>
-            <h2 id="parametersTitle">Contato e nome do analista</h2>
+            <p class="eyebrow" data-i18n="defaultParameters">Parâmetros padrão</p>
+            <h2 id="parametersTitle" data-i18n="analystContactName">Contato e nome do analista</h2>
           </div>
           <button class="icon-button" id="closeParametersButton" type="button" aria-label="Fechar parâmetros"><i data-lucide="x"></i></button>
         </div>
-        <p class="parameters-copy">Quando preenchidos, esses dados ficam salvos localmente e passam a ser o padrão da ferramenta.</p>
+        <p class="parameters-copy" data-i18n="parametersInfo">Quando preenchidos, esses dados ficam salvos localmente e passam a ser o padrão da ferramenta.</p>
         <label class="field">
-          <span>Contato do analista</span>
-          <input id="paramContact" type="text" placeholder="+55 (11) 94706-4266">
+          <span data-i18n="analystContact">Contato do analista</span>
+          <input id="paramContact" type="text" data-i18n-placeholder="analystContactPlaceholder" placeholder="+55 (11) 94706-4266">
         </label>
         <label class="field">
-          <span>Nome do analista</span>
-          <input id="paramRequesterName" type="text" placeholder="SEU NOME AQUI">
+          <span data-i18n="analystName">Nome do analista</span>
+          <input id="paramRequesterName" type="text" data-i18n-placeholder="analystNamePlaceholder" placeholder="SEU NOME AQUI">
         </label>
         <label class="toggle-field">
           <input id="paramUseEmojis" type="checkbox" checked>
-          <span>Usar emojis nos textos operacionais</span>
+          <span data-i18n="useEmojisText">Usar emojis nos textos operacionais</span>
         </label>
         <label class="toggle-field">
           <input id="paramDarkTheme" type="checkbox">
-          <span>Tema escuro</span>
+          <span data-i18n="darkTheme">Tema escuro</span>
         </label>
+        <div class="lang-selector" style="margin-top: 12px;">
+          <span data-i18n="language" style="margin-right: 8px; font-size: 14px;">Idioma:</span>
+          <button class="lang-btn active" data-lang="pt" onclick="setLang('pt')">PT</button>
+          <button class="lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
+          <button class="lang-btn" data-lang="es" onclick="setLang('es')">ES</button>
+        </div>
         <div class="parameters-actions">
-          <button class="ghost-button" id="cancelParametersButton" type="button">Cancelar</button>
-          <button class="primary-button" id="saveParametersButton" type="button">Salvar parâmetros</button>
+          <button class="ghost-button" id="cancelParametersButton" type="button"><span data-i18n="cancel">Cancelar</span></button>
+          <button class="primary-button" id="saveParametersButton" type="button"><span data-i18n="saveParameters">Salvar parâmetros</span></button>
         </div>
       </form>
     </dialog>
+
+    <!-- Custom NOC Error Modal -->
+    <dialog class="noc-error-modal" id="nocErrorModal" aria-labelledby="nocErrorTitle">
+      <div class="noc-error-card animate__animated animate__zoomIn">
+        <div class="noc-error-header">
+          <div class="noc-error-icon-box">
+            <i data-lucide="circle-alert"></i>
+          </div>
+          <div class="noc-error-title-wrap">
+            <h2 id="nocErrorTitle" data-i18n="errorTitle">Falha na Operação</h2>
+            <p data-i18n="errorOccurred">Ocorreu um erro inesperado durante a execução.</p>
+          </div>
+        </div>
+        <div class="noc-error-message" id="nocErrorMessage">
+          Não foi possível concluir a ação solicitada.
+        </div>
+        <div class="noc-error-details-wrap" id="nocErrorDetailsWrap" hidden>
+          <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: 700; color: var(--muted);" data-i18n="errorDiagnosis">Diagnóstico técnico:</p>
+          <div class="noc-error-details-box" id="nocErrorDetails"></div>
+        </div>
+        <div class="noc-error-actions">
+          <button class="ghost-button" id="nocErrorCopyButton" type="button"><i data-lucide="copy"></i> <span data-i18n="copyErrorDetails">Copiar detalhes</span></button>
+          <button class="ghost-button" id="nocErrorRetryButton" type="button"><i data-lucide="rotate-cw"></i> <span data-i18n="tryAgain">Tentar novamente</span></button>
+          <button class="primary-button" id="nocErrorCloseButton" type="button"><span data-i18n="close">Fechar</span></button>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- Version Update Available Floating Banner -->
+    <aside class="version-update-banner" id="versionUpdateBanner" hidden aria-live="polite">
+      <div class="version-update-info">
+        <div class="version-update-icon">
+          <i data-lucide="rocket"></i>
+        </div>
+        <div class="version-update-text">
+          <strong data-i18n="newVersionTitle">Nova Versão Disponível</strong>
+          <span data-i18n="newVersionAvailable">Clique para atualizar e limpar o cache.</span>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <button class="version-update-btn" id="versionUpdateActionBtn" type="button">
+          <i data-lucide="refresh-cw" style="width: 14px; height: 14px; vertical-align: -2px;"></i> <span data-i18n="updateAndClearCache">Atualizar e Limpar Cache</span>
+        </button>
+        <button class="icon-button" id="versionUpdateDismissBtn" type="button" aria-label="Fechar aviso" style="padding: 4px; background: transparent; border: none; color: var(--muted); cursor: pointer;"><i data-lucide="x"></i></button>
+      </div>
+    </aside>
+
     <script type="module" src="three-loader.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://unpkg.com/cytoscape@3.30.4/dist/cytoscape.min.js"></script>
+    <script src="js/translations.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

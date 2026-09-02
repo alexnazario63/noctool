@@ -486,35 +486,186 @@ button {
 
 .massivas-topology-panel {
   display: grid;
-  gap: 8px;
+  gap: 12px;
   overflow: hidden;
-  padding: 14px;
+  padding: 16px;
   border: 1px solid var(--line);
-  border-radius: 16px;
-  background: #f5f8fb;
+  border-radius: 20px;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 4px 20px rgba(25, 35, 50, 0.05);
+  position: relative;
 }
 
 .massivas-topology-heading {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   color: var(--ink);
   font-weight: 800;
+  flex-wrap: wrap;
 }
 
-.massivas-topology-heading small {
+.massivas-topology-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.topology-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  background: rgba(11, 111, 106, 0.08);
+  border: 1px solid rgba(11, 111, 106, 0.2);
+  border-radius: 999px;
+  font-size: 10px;
+  color: var(--primary);
+  font-weight: 800;
+}
+
+body.theme-dark-red .topology-live-badge {
+  background: rgba(229, 9, 47, 0.12);
+  border-color: rgba(229, 9, 47, 0.3);
+  color: var(--primary);
+}
+
+.pulse-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--primary);
+  border-radius: 50%;
+}
+
+.topology-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 11px;
+}
+
+.topo-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  background: var(--field);
+  border: 1px solid var(--line);
   color: var(--muted);
-  font-weight: 600;
+}
+
+.topo-tag.pe { color: #0b6f6a; background: #eef7f6; border-color: #b2dedb; }
+.topo-tag.core { color: #1e3a8a; background: #eff6ff; border-color: #bfdbfe; }
+.topo-tag.sw { color: #047857; background: #ecfdf5; border-color: #a7f3d0; }
+.topo-tag.dwdm { color: #b45309; background: #fffbeb; border-color: #fde68a; }
+.topo-tag.trunk { color: #c2410c; background: #fff7ed; border-color: #fed7aa; }
+.topo-tag.alarm { color: var(--danger); background: #fef2f2; border-color: #fecaca; }
+
+body.theme-dark-red .topo-tag.pe { color: #f87171; background: #200d11; border-color: #5c1822; }
+body.theme-dark-red .topo-tag.core { color: #c084fc; background: #1c1028; border-color: #4c1d70; }
+body.theme-dark-red .topo-tag.sw { color: #34d399; background: #0c1e17; border-color: #1a4f3b; }
+body.theme-dark-red .topo-tag.dwdm { color: #fbbf24; background: #221a0a; border-color: #594014; }
+body.theme-dark-red .topo-tag.trunk { color: #fb923c; background: #241609; border-color: #633314; }
+body.theme-dark-red .topo-tag.alarm { color: #ff4966; background: #260a10; border-color: #701323; }
+
+.topology-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.topo-btn-icon {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.topo-btn-icon:hover {
+  background: var(--field);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.topo-btn-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 150ms ease;
+}
+
+.topo-btn-link:hover {
+  background: var(--field);
+  border-color: var(--primary);
+  color: var(--primary-strong);
 }
 
 .massivas-topology-panel canvas,
 .massivas-topology-panel #massivasTopologyGraph {
-  display: block;
   width: 100%;
-  height: 300px;
-  min-height: 180px;
+  height: 380px;
+  min-height: 280px;
+  border-radius: 12px;
+  background: var(--field);
+  border: 1px solid var(--line);
+  box-sizing: border-box;
+  position: relative;
+}
+
+#massivasTopologyGraph:empty::before {
+  content: "Cole os alarmes para gerar a visualização da topologia de rede";
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.massivas-topology-hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
   border-radius: 10px;
+  font-size: 12px;
+  color: var(--ink);
+  box-shadow: 0 4px 14px rgba(25, 35, 50, 0.06);
+}
+
+.massivas-topology-hud strong {
+  color: var(--primary);
 }
 
 .compact-copy-action {
@@ -1486,3 +1637,542 @@ body.theme-dark-red .three-background {
     font-size: 22px;
   }
 }
+
+/* Topology Controls */
+.topology-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.topo-btn-icon {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: all 150ms ease;
+}
+
+.topo-btn-icon:hover {
+  border-color: var(--primary);
+  background: #eef9f7;
+}
+
+.topo-btn-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 150ms ease;
+}
+
+.topo-btn-link:hover {
+  border-color: var(--primary);
+  background: #eef9f7;
+}
+
+body.theme-dark-red .topo-btn-icon,
+body.theme-dark-red .topo-btn-link {
+  background: #141418;
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+body.theme-dark-red .topo-btn-icon:hover,
+body.theme-dark-red .topo-btn-link:hover {
+  border-color: var(--primary);
+  background: #241116;
+}
+
+/* ==========================================================================
+   GLOBAL LOADING PROGRESS BAR (ANTI-FLICKER & SMOOTH TRANSITIONS)
+   ========================================================================== */
+
+.app-top-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3.5px;
+  z-index: 999999;
+  background: transparent;
+  pointer-events: none;
+  overflow: hidden;
+  transition: opacity 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.app-top-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--primary) 0%, #2dd4bf 50%, #3b82f6 100%);
+  box-shadow: 0 0 10px rgba(45, 212, 191, 0.7), 0 0 4px var(--primary);
+  border-radius: 0 4px 4px 0;
+  transition: width 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.app-top-progress.is-indeterminate .app-top-progress-bar {
+  width: 100%;
+  animation: appTopProgressIndeterminate 1.2s infinite cubic-bezier(0.65, 0.815, 0.735, 0.395);
+  transform-origin: 0% 50%;
+}
+
+@keyframes appTopProgressIndeterminate {
+  0% { transform: translateX(-100%) scaleX(0.2); }
+  50% { transform: translateX(0%) scaleX(0.7); }
+  100% { transform: translateX(100%) scaleX(0.2); }
+}
+
+/* Global Loading Overlay with Glassmorphism */
+.noc-loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 99990;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 280ms ease, visibility 280ms ease;
+}
+
+.noc-loading-overlay.is-visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.noc-loading-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 24px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  transform: scale(0.95);
+  transition: transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.noc-loading-overlay.is-visible .noc-loading-card {
+  transform: scale(1);
+}
+
+.noc-spinner {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 3.5px solid var(--line);
+  border-top-color: var(--primary);
+  border-right-color: #2dd4bf;
+  animation: nocSpin 750ms linear infinite;
+}
+
+@keyframes nocSpin {
+  to { transform: rotate(360deg); }
+}
+
+.noc-loading-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+/* Skeleton Loading Shimmer */
+.skeleton-shimmer {
+  background: linear-gradient(90deg, var(--field) 25%, var(--line) 50%, var(--field) 75%);
+  background-size: 200% 100%;
+  animation: shimmerMove 1.5s infinite linear;
+  border-radius: 8px;
+}
+
+@keyframes shimmerMove {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ==========================================================================
+   CUSTOM ERROR MODAL (TELECOM NOC ERROR SCREEN)
+   ========================================================================== */
+
+.noc-error-modal {
+  border: none;
+  padding: 0;
+  background: transparent;
+  max-width: 580px;
+  width: 90vw;
+  z-index: 100000;
+}
+
+.noc-error-modal::backdrop {
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.noc-error-card {
+  background: var(--panel);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 18px;
+  padding: 24px 28px;
+  box-shadow: 0 24px 48px -12px rgba(239, 68, 68, 0.25), 0 0 0 1px var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.noc-error-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #ef4444, #f59e0b);
+}
+
+.noc-error-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.noc-error-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.noc-error-title-wrap h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+.noc-error-title-wrap p {
+  margin: 2px 0 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.noc-error-message {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--field);
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+}
+
+.noc-error-details-box {
+  background: #0f172a;
+  color: #f87171;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  max-height: 160px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  border: 1px solid #334155;
+}
+
+.noc-error-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+/* ==========================================================================
+   VERSION UPDATE NOTIFICATION BANNER (WITH CACHE BUSTING)
+   ========================================================================== */
+
+.version-update-banner {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  max-width: 420px;
+  width: calc(100vw - 48px);
+  background: var(--panel);
+  border: 1.5px solid var(--primary);
+  border-radius: 14px;
+  padding: 16px 20px;
+  box-shadow: 0 16px 36px -8px rgba(11, 111, 106, 0.35), 0 0 0 1px var(--line);
+  z-index: 99900;
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  backdrop-filter: blur(8px);
+}
+
+.version-update-banner.is-visible {
+  display: flex !important;
+  animation: bannerSlideUp 350ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.version-update-banner[hidden] {
+  display: none !important;
+}
+
+@keyframes bannerSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.version-update-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.version-update-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(11, 111, 106, 0.12);
+  color: var(--primary);
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  flex-shrink: 0;
+  animation: versionPulse 2s infinite ease-in-out;
+}
+
+@keyframes versionPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+.version-update-text strong {
+  display: block;
+  font-size: 13.5px;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.version-update-text span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.version-update-btn {
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 180ms ease;
+  box-shadow: 0 4px 12px rgba(11, 111, 106, 0.25);
+}
+
+.version-update-btn:hover {
+  background: var(--primary-strong);
+  transform: translateY(-1.5px);
+  box-shadow: 0 6px 16px rgba(11, 111, 106, 0.35);
+}
+
+.version-update-btn:active {
+  transform: translateY(0) scale(0.97);
+}
+
+/* ==========================================================================
+   BUTTON MICRO-INTERACTIONS & REFINED ANIMATIONS
+   ========================================================================== */
+
+button, 
+.copy-action, 
+.primary-button, 
+.ghost-button, 
+.icon-button {
+  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+button:hover, 
+.copy-action:hover, 
+.primary-button:hover, 
+.ghost-button:hover {
+  transform: translateY(-1.5px);
+}
+
+button:active, 
+.copy-action:active, 
+.primary-button:active, 
+.ghost-button:active {
+  transform: translateY(0px) scale(0.98);
+}
+
+button:focus-visible, 
+.copy-action:focus-visible, 
+.primary-button:focus-visible, 
+.ghost-button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Click Ripple Feedback */
+.btn-ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+  transform: scale(0);
+  animation: btnRippleAnim 600ms linear;
+  pointer-events: none;
+}
+
+@keyframes btnRippleAnim {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+/* ==========================================================================
+   DARK THEME REFINEMENTS (COMPREHENSIVE POLISH)
+   ========================================================================== */
+
+body.theme-dark-red .version-update-banner {
+  background: #111116;
+  border-color: var(--primary);
+  box-shadow: 0 16px 36px -8px rgba(229, 9, 47, 0.35), 0 0 0 1px var(--line);
+}
+
+body.theme-dark-red .version-update-icon {
+  background: rgba(229, 9, 47, 0.15);
+  color: var(--primary);
+}
+
+body.theme-dark-red .version-update-btn {
+  background: var(--primary);
+  box-shadow: 0 4px 12px rgba(229, 9, 47, 0.35);
+}
+
+body.theme-dark-red .version-update-btn:hover {
+  background: var(--primary-strong);
+}
+
+body.theme-dark-red .noc-loading-card {
+  background: #111116;
+  border-color: #2d161a;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.7);
+}
+
+body.theme-dark-red .noc-error-card {
+  background: #111116;
+  border-color: rgba(239, 68, 68, 0.4);
+  box-shadow: 0 24px 48px -12px rgba(239, 68, 68, 0.35), 0 0 0 1px #2d161a;
+}
+
+body.theme-dark-red .noc-error-message {
+  background: #18181f;
+  border-color: #2d161a;
+  color: #f1f5f9;
+}
+
+body.theme-dark-red .app-top-progress-bar {
+  background: linear-gradient(90deg, #e5092f 0%, #ff4966 50%, #f59e0b 100%);
+  box-shadow: 0 0 10px rgba(229, 9, 47, 0.7), 0 0 4px var(--primary);
+}
+
+body.theme-dark-red .skeleton-shimmer {
+  background: linear-gradient(90deg, #18181f 25%, #2d161a 50%, #18181f 75%);
+}
+
+/* Scrollbar polish */
+body.theme-dark-red ::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+body.theme-dark-red ::-webkit-scrollbar-track {
+  background: #0d0d10;
+}
+
+body.theme-dark-red ::-webkit-scrollbar-thumb {
+  background: #2d161a;
+  border-radius: 4px;
+}
+
+body.theme-dark-red ::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+/* Language Switcher in Dark Theme */
+body.theme-dark-red .lang-btn {
+  border-color: #3b1218;
+  color: #b9bbc3;
+  background: #141418;
+}
+
+body.theme-dark-red .lang-btn:hover {
+  background: #241116;
+  border-color: var(--primary);
+  color: #ffffff;
+}
+
+body.theme-dark-red .lang-btn.active {
+  background: rgba(229, 9, 47, 0.28);
+  border-color: var(--primary);
+  color: #ffffff;
+}
+
+/* Topology HUD in Dark Theme */
+body.theme-dark-red .massivas-topology-panel canvas,
+body.theme-dark-red .massivas-topology-panel #massivasTopologyGraph {
+  background: #08080b;
+  border-color: #2d161a;
+}
+
+body.theme-dark-red .massivas-topology-panel {
+  background: #111116;
+  border-color: #2d161a;
+}
+
+
