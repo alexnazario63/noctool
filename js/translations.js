@@ -1206,7 +1206,10 @@ function t(key, params = {}) {
 }
 
 // Set language
-function setLang(lang) {
+function setLang(lang, event) {
+  if (event && typeof event.preventDefault === "function") {
+    event.preventDefault();
+  }
   if (translations[lang]) {
     currentLang = lang;
     localStorage.setItem("nocLang", lang);

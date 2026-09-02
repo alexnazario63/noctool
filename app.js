@@ -5089,6 +5089,41 @@ function showToast(message, icon = "success") {
 
 const CURRENT_APP_VERSION = "3.3";
 const APP_BUILD_TIMESTAMP = "2026-09-02";
+let detectedNewServerVersion = null;
+
+async function checkServerVersion() {
+  try {
+    const res = await fetch("version.json?_noc_cb=" + Date.now(), {
+      cache: "no-store",
+      headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const serverVer = (data.version || data).toString().trim();
+      if (serverVer && serverVer !== CURRENT_APP_VERSION) {
+        detectedNewServerVersion = serverVer;
+        showVersionUpdateBanner(serverVer);
+        return;
+      }
+    }
+  } catch (e) {
+    // Fallback to fetch version.txt
+    try {
+      const resTxt = await fetch("version.txt?_noc_cb=" + Date.now(), {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" }
+      });
+      if (resTxt.ok) {
+        const serverVer = (await resTxt.text()).trim();
+        if (serverVer && serverVer !== CURRENT_APP_VERSION) {
+          detectedNewServerVersion = serverVer;
+          showVersionUpdateBanner(serverVer);
+          return;
+        }
+      }
+    } catch (err) {}
+  }
+}
 
 function initVersionChecker() {
   const banner = document.getElementById("versionUpdateBanner");
@@ -5097,23 +5132,31 @@ function initVersionChecker() {
     banner.classList.remove("is-visible");
   }
 
+  // 1. Check local storage version
   try {
     const storedVersion = localStorage.getItem("noc_app_version");
-    const dismissedVersion = localStorage.getItem("noc_update_dismissed_version");
-
     if (!storedVersion) {
-      // First time initialization: store version, do not display banner
       localStorage.setItem("noc_app_version", CURRENT_APP_VERSION);
-    } else if (storedVersion !== CURRENT_APP_VERSION && dismissedVersion !== CURRENT_APP_VERSION) {
-      // Stored version is different from current codebase and was not dismissed: display banner
-      showVersionUpdateBanner();
-    } else {
-      // Keep stored version up to date
-      localStorage.setItem("noc_app_version", CURRENT_APP_VERSION);
+    } else if (storedVersion !== CURRENT_APP_VERSION) {
+      showVersionUpdateBanner(CURRENT_APP_VERSION);
     }
   } catch (e) {
     console.warn("Version check error:", e);
   }
+
+  // 2. Perform live server version check
+  checkServerVersion();
+
+  // 3. Periodic check & tab switch check
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      checkServerVersion();
+    }
+  });
+  window.addEventListener("focus", () => {
+    checkServerVersion();
+  });
+  setInterval(checkServerVersion, 45000);
 
   const actionBtn = document.getElementById("versionUpdateActionBtn");
   if (actionBtn) {
@@ -5123,10 +5166,6 @@ function initVersionChecker() {
   const dismissBtn = document.getElementById("versionUpdateDismissBtn");
   if (dismissBtn) {
     dismissBtn.addEventListener("click", () => {
-      try {
-        localStorage.setItem("noc_update_dismissed_version", CURRENT_APP_VERSION);
-        localStorage.setItem("noc_app_version", CURRENT_APP_VERSION);
-      } catch (e) {}
       const b = document.getElementById("versionUpdateBanner");
       if (b) {
         b.hidden = true;
@@ -5136,9 +5175,13 @@ function initVersionChecker() {
   }
 }
 
-function showVersionUpdateBanner() {
+function showVersionUpdateBanner(newVer = "") {
   const banner = document.getElementById("versionUpdateBanner");
   if (banner) {
+    const titleEl = banner.querySelector("[data-i18n='newVersionTitle']");
+    if (titleEl && newVer) {
+      titleEl.textContent = `Nova Versão v${newVer} Disponível`;
+    }
     banner.hidden = false;
     banner.classList.add("is-visible");
     renderIcons();
@@ -5180,7 +5223,8 @@ async function handleUpdateAndClearCache() {
     localStorage.clear();
 
     // 5. Restore preserved defaults & update version
-    localStorage.setItem("noc_app_version", CURRENT_APP_VERSION);
+    const targetVer = detectedNewServerVersion || CURRENT_APP_VERSION;
+    localStorage.setItem("noc_app_version", targetVer);
     if (defaults && Object.keys(defaults).length > 0) {
       localStorage.setItem("nocGeneratorDefaults", JSON.stringify(defaults));
     }
