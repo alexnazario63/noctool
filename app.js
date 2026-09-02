@@ -5087,9 +5087,23 @@ function showToast(message, icon = "success") {
    APP VERSIONING & DEEP CACHE PURGE SYSTEM
    ========================================================================== */
 
-const CURRENT_APP_VERSION = "3.3";
+const CURRENT_APP_VERSION = "3.4";
 const APP_BUILD_TIMESTAMP = "2026-09-02";
 let detectedNewServerVersion = null;
+
+function compareVersions(v1, v2) {
+  if (!v1 || !v2) return 0;
+  const p1 = String(v1).replace(/^v/i, "").trim().split(".").map((n) => parseInt(n, 10) || 0);
+  const p2 = String(v2).replace(/^v/i, "").trim().split(".").map((n) => parseInt(n, 10) || 0);
+  const len = Math.max(p1.length, p2.length);
+  for (let i = 0; i < len; i++) {
+    const num1 = p1[i] || 0;
+    const num2 = p2[i] || 0;
+    if (num1 > num2) return 1;
+    if (num1 < num2) return -1;
+  }
+  return 0;
+}
 
 async function checkServerVersion() {
   try {
@@ -5100,10 +5114,12 @@ async function checkServerVersion() {
     if (res.ok) {
       const data = await res.json();
       const serverVer = (data.version || data).toString().trim();
-      if (serverVer && serverVer !== CURRENT_APP_VERSION) {
+      if (serverVer && compareVersions(serverVer, CURRENT_APP_VERSION) > 0) {
         detectedNewServerVersion = serverVer;
         showVersionUpdateBanner(serverVer);
         return;
+      } else {
+        hideVersionUpdateBanner();
       }
     }
   } catch (e) {
@@ -5115,10 +5131,12 @@ async function checkServerVersion() {
       });
       if (resTxt.ok) {
         const serverVer = (await resTxt.text()).trim();
-        if (serverVer && serverVer !== CURRENT_APP_VERSION) {
+        if (serverVer && compareVersions(serverVer, CURRENT_APP_VERSION) > 0) {
           detectedNewServerVersion = serverVer;
           showVersionUpdateBanner(serverVer);
           return;
+        } else {
+          hideVersionUpdateBanner();
         }
       }
     } catch (err) {}
@@ -5126,25 +5144,16 @@ async function checkServerVersion() {
 }
 
 function initVersionChecker() {
-  const banner = document.getElementById("versionUpdateBanner");
-  if (banner) {
-    banner.hidden = true;
-    banner.classList.remove("is-visible");
-  }
+  hideVersionUpdateBanner();
 
-  // 1. Check local storage version
+  // 1. Mark current version in localStorage
   try {
-    const storedVersion = localStorage.getItem("noc_app_version");
-    if (!storedVersion) {
-      localStorage.setItem("noc_app_version", CURRENT_APP_VERSION);
-    } else if (storedVersion !== CURRENT_APP_VERSION) {
-      showVersionUpdateBanner(CURRENT_APP_VERSION);
-    }
+    localStorage.setItem("noc_app_version", CURRENT_APP_VERSION);
   } catch (e) {
-    console.warn("Version check error:", e);
+    console.warn("Storage error:", e);
   }
 
-  // 2. Perform live server version check
+  // 2. Perform live server version check (only shows if server version > current app version)
   checkServerVersion();
 
   // 3. Periodic check & tab switch check
@@ -5156,7 +5165,7 @@ function initVersionChecker() {
   window.addEventListener("focus", () => {
     checkServerVersion();
   });
-  setInterval(checkServerVersion, 45000);
+  setInterval(checkServerVersion, 60000);
 
   const actionBtn = document.getElementById("versionUpdateActionBtn");
   if (actionBtn) {
@@ -5165,13 +5174,7 @@ function initVersionChecker() {
 
   const dismissBtn = document.getElementById("versionUpdateDismissBtn");
   if (dismissBtn) {
-    dismissBtn.addEventListener("click", () => {
-      const b = document.getElementById("versionUpdateBanner");
-      if (b) {
-        b.hidden = true;
-        b.classList.remove("is-visible");
-      }
-    });
+    dismissBtn.addEventListener("click", hideVersionUpdateBanner);
   }
 }
 
@@ -5185,6 +5188,14 @@ function showVersionUpdateBanner(newVer = "") {
     banner.hidden = false;
     banner.classList.add("is-visible");
     renderIcons();
+  }
+}
+
+function hideVersionUpdateBanner() {
+  const banner = document.getElementById("versionUpdateBanner");
+  if (banner) {
+    banner.hidden = true;
+    banner.classList.remove("is-visible");
   }
 }
 
@@ -5234,11 +5245,11 @@ async function handleUpdateAndClearCache() {
     // 6. Hard reload with cache-busting parameter
     setTimeout(() => {
       const cleanUrl = window.location.origin + window.location.pathname + "?noc_v=" + Date.now();
-      window.location.href = cleanUrl;
+      window.location.replace(cleanUrl);
     }, 600);
   } catch (error) {
     console.error("Update error:", error);
-    window.location.reload(true);
+    window.location.reload();
   }
 }
 
