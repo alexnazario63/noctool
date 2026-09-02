@@ -628,7 +628,10 @@ body.theme-dark-red .topo-tag.alarm { color: #ff4966; background: #260a10; borde
   color: var(--primary-strong);
 }
 
-.massivas-topology-panel canvas,
+.massivas-topology-panel canvas {
+  background: transparent !important;
+}
+
 .massivas-topology-panel #massivasTopologyGraph {
   width: 100%;
   height: 380px;
@@ -2164,7 +2167,6 @@ body.theme-dark-red .lang-btn.active {
 }
 
 /* Topology HUD in Dark Theme */
-body.theme-dark-red .massivas-topology-panel canvas,
 body.theme-dark-red .massivas-topology-panel #massivasTopologyGraph {
   background: #08080b;
   border-color: #2d161a;
