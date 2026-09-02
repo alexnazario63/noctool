@@ -5087,7 +5087,7 @@ function showToast(message, icon = "success") {
    APP VERSIONING & DEEP CACHE PURGE SYSTEM
    ========================================================================== */
 
-const CURRENT_APP_VERSION = "3.4";
+const CURRENT_APP_VERSION = "3.7";
 const APP_BUILD_TIMESTAMP = "2026-09-02";
 let detectedNewServerVersion = null;
 

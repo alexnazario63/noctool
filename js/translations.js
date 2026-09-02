@@ -7,7 +7,8 @@
     // Título e branding
     appTitle: "NOC IP TOOL",
     developedBy: "Developed by Alexsander",
-    version: "Version 3.3",
+    version: "Version 3.7",
+    versionPrefix: "Version",
     
     // Changelog
     changelog: "Changelog",
@@ -394,7 +395,8 @@
     // Title and branding
     appTitle: "NOC IP TOOL",
     developedBy: "Developed by Alexsander",
-    version: "Version 3.3",
+    version: "Version 3.7",
+    versionPrefix: "Version",
     
     // Changelog
     changelog: "Changelog",
@@ -785,7 +787,8 @@
     // Título y branding
     appTitle: "NOC IP TOOL",
     developedBy: "Developed by Alexsander",
-    version: "Version 3.3",
+    version: "Version 3.7",
+    versionPrefix: "Version",
     
     // Changelog
     changelog: "Changelog",
@@ -1236,7 +1239,13 @@ function updatePageTranslations() {
   // Update all elements with data-i18n attribute
   document.querySelectorAll("[data-i18n]").forEach((el) => {
     const key = el.dataset.i18n;
-    el.textContent = t(key);
+    if (key === "version") {
+      const prefix = t("versionPrefix") || "Version";
+      const ver = typeof CURRENT_APP_VERSION !== "undefined" ? CURRENT_APP_VERSION : (t("version") || "3.4").replace(/^[^\d]*/, "");
+      el.textContent = `${prefix} ${ver}`;
+    } else {
+      el.textContent = t(key);
+    }
   });
   
   // Update all elements with data-i18n-placeholder attribute
