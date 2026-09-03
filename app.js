@@ -3996,7 +3996,8 @@ function applyCarrierDefaults(carrier, initialLoad) {
 
 function updateGreeting() {
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
+  const greetingKey = hour < 12 ? "goodMorning" : hour < 18 ? "goodAfternoon" : "goodEvening";
+  const greeting = t(greetingKey);
   fields.greeting.value = greeting;
 }
 
