@@ -361,11 +361,51 @@ Exemplo:
   <script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
   <script>
     let cy = null;
+    const TOPOLOGY_STORAGE_KEY = 'nocTopologyLearning';
     let topologyData = {
       nodes: new Map(),
       edges: new Map(),
       corrections: []
     };
+
+    function serializeTopology() {
+      return {
+        nodes: Array.from(topologyData.nodes.values()).map(node => ({
+          ...node,
+          interfaces: Array.from(node.interfaces || [])
+        })),
+        edges: Array.from(topologyData.edges.values()).map(edge => ({
+          ...edge,
+          localInterfaces: Array.from(edge.localInterfaces || []),
+          remoteInterfaces: Array.from(edge.remoteInterfaces || [])
+        })),
+        corrections: topologyData.corrections
+      };
+    }
+
+    function saveTopology() {
+      localStorage.setItem(TOPOLOGY_STORAGE_KEY, JSON.stringify(serializeTopology()));
+    }
+
+    function loadTopology() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(TOPOLOGY_STORAGE_KEY) || 'null');
+        if (!saved) return;
+
+        topologyData.nodes = new Map((saved.nodes || []).map(node => [node.id, {
+          ...node,
+          interfaces: new Set(node.interfaces || [])
+        }]));
+        topologyData.edges = new Map((saved.edges || []).map(edge => [edge.id, {
+          ...edge,
+          localInterfaces: new Set(edge.localInterfaces || []),
+          remoteInterfaces: new Set(edge.remoteInterfaces || [])
+        }]));
+        topologyData.corrections = Array.isArray(saved.corrections) ? saved.corrections : [];
+      } catch (error) {
+        localStorage.removeItem(TOPOLOGY_STORAGE_KEY);
+      }
+    }
 
     function getEquipmentSvgUri(type, color = '#0b6f6a', isDark = false) {
       let svg = '';
@@ -1243,12 +1283,16 @@ Exemplo:
             topologyData.nodes.set(sourceHost, {
               id: sourceHost,
               type: getNodeType(record),
+              deliveryType,
+              trigger,
               interfaces: new Set(),
               alarmCount: 0
             });
           }
           const node = topologyData.nodes.get(sourceHost);
           node.alarmCount++;
+          if (deliveryType) node.deliveryType = deliveryType;
+          if (trigger) node.trigger = trigger;
           if (localIface) node.interfaces.add(localIface);
         }
         
@@ -1257,11 +1301,15 @@ Exemplo:
             topologyData.nodes.set(targetHost, {
               id: targetHost,
               type: 'equipment',
+              deliveryType,
+              trigger,
               interfaces: new Set(),
               alarmCount: 0
             });
           }
           const node = topologyData.nodes.get(targetHost);
+          if (deliveryType) node.deliveryType = deliveryType;
+          if (trigger) node.trigger = trigger;
           if (remoteIface) node.interfaces.add(remoteIface);
         }
         
@@ -1293,6 +1341,7 @@ Exemplo:
       updateTopologyView();
       updateStats();
       updateLists();
+      saveTopology();
     }
 
     // Update Cytoscape view
@@ -1303,7 +1352,7 @@ Exemplo:
       const elements = [];
       
       topologyData.nodes.forEach(node => {
-        const info = classifyBackboneHost(node.id, '', node.type);
+        const info = classifyBackboneHost(node.id, node.deliveryType, node.trigger);
         const meta = extractHostMetadata(node.id);
         const cached = cityCache.get(`${meta.sigla.toUpperCase()}_${meta.uf.toUpperCase()}`);
         const cityText = cached ? `${cached.municipio} - ${cached.uf || meta.uf}` : (meta.uf ? `${meta.sigla} - ${meta.uf}` : meta.sigla);
@@ -1467,6 +1516,7 @@ Exemplo:
         updateTopologyView();
         updateStats();
         updateLists();
+        saveTopology();
       }
     }
 
@@ -1481,6 +1531,7 @@ Exemplo:
       updateTopologyView();
       updateStats();
       updateLists();
+      saveTopology();
     }
 
     function editEdge(edgeId) {
@@ -1497,6 +1548,7 @@ Exemplo:
       updateTopologyView();
       updateStats();
       updateLists();
+      saveTopology();
     }
 
     function deleteEdge(edgeId) {
@@ -1505,6 +1557,7 @@ Exemplo:
       updateTopologyView();
       updateStats();
       updateLists();
+      saveTopology();
     }
 
     // Clear topology
@@ -1513,6 +1566,7 @@ Exemplo:
       topologyData.nodes.clear();
       topologyData.edges.clear();
       topologyData.corrections = [];
+      localStorage.removeItem(TOPOLOGY_STORAGE_KEY);
       updateTopologyView();
       updateStats();
       updateLists();
@@ -1557,8 +1611,11 @@ Exemplo:
 
     // Initialize
     document.addEventListener('DOMContentLoaded', () => {
+      loadTopology();
       initCytoscape();
       updateTopologyView();
+      updateStats();
+      updateLists();
     });
   </script>
 </body>

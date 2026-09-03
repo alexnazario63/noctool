@@ -1,5 +1,6 @@
 ﻿const DEFAULT_EMAIL_INTRO = "Estamos com transporte de capacidade indisponível, verificar com urgência.";
 const DEFAULT_OUTAGE_TEXT = "transporte de capacidade indisponível";
+const FOREIGN_PARTNERS = new Set(["AMAZON", "GOOGLE"]);
 
 // Integração Zabbix - Massivas
 const ZABBIX_API_URL = ""; // Ex: "https://zabbix.suaempresa.com.br/api_jsonrpc.php"
@@ -3997,7 +3998,9 @@ function applyCarrierDefaults(carrier, initialLoad) {
 function updateGreeting() {
   const hour = new Date().getHours();
   const greetingKey = hour < 12 ? "goodMorning" : hour < 18 ? "goodAfternoon" : "goodEvening";
-  const greeting = t(greetingKey);
+  const partner = normalizePartnerLookup(getValue("carrier"));
+  const greetingLanguage = FOREIGN_PARTNERS.has(partner) ? getLang() : "pt";
+  const greeting = translations[greetingLanguage]?.[greetingKey] || translations.pt[greetingKey];
   fields.greeting.value = greeting;
 }
 
