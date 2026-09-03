@@ -1201,8 +1201,8 @@ Exemplo:
 
     // Get node type based on data
     function getNodeType(record) {
-      const deliveryType = (record.interfaceData?.deliveryType || '').toUpperCase();
-      const trigger = (record.interfaceData?.trigger || '').toUpperCase();
+      const deliveryType = (record.interfaceData?.deliveryType || record.deliveryType || '').toUpperCase();
+      const trigger = (record.interfaceData?.trigger || record.trigger || '').toUpperCase();
       
       if (deliveryType === 'DWD' || deliveryType === 'DWDM') return 'dwdm';
       if (deliveryType === 'FIB') return 'fibra';
@@ -1227,19 +1227,22 @@ Exemplo:
       const ifaceMatch = afterHost.match(/^\s*([^\s:]+)\s*::/);
       const localInterface = ifaceMatch ? ifaceMatch[1] : '';
       
-      const descMatch = afterHost.match(/::\s*\(([^)]+)\)/) || afterHost.match(/::\s*([^:]+)/);
+      const descMatch = afterHost.match(/::\s*\(([^)]+)\)/) || afterHost.match(/::\s*([^:]+?)\s*::/);
       const rawDescription = descMatch ? descMatch[1].trim() : '';
       const description = rawDescription.replace(/^[(\s]+|[)\s]+$/g, '');
       
-      const descParts = description.split('_');
+      const descParts = description.split(/[:_]/).map(part => part.trim()).filter(Boolean);
       const hostSegment = descParts.find(s => /^BR[.-][A-Z]{2}[.-]/i.test(s));
       const trigger = descParts[0] || '';
       const interfaceType = descParts[1] || '';
-      const capacity = descParts[2] || '';
-      const remoteEquipment = hostSegment || descParts[3] || '';
-      const remotePort = descParts[4] || '';
-      const deliveryType = descParts[5] || '';
-      const operator = descParts[6] || '';
+      const capacity = descParts.find(part => /^\d+(?:M|G|T)(?:B)?$/i.test(part)) || '';
+      const trunkTarget = descParts[1]?.match(/^(.+)-ETK$/i);
+      const remoteEquipment = hostSegment || trunkTarget?.[1] || descParts[2] || '';
+      const remotePort = trunkTarget
+        ? `ETK${descParts[2] || ''}`
+        : descParts.slice(2).find(part => /^(?:XG|GE|GI|TE|ETH|PORT|CH)\S*/i.test(part)) || '';
+      const deliveryType = descParts.find(part => /^(?:CAP|DWD|DWDM|FIB|RAD|MGT|MG)$/i.test(part)) || '';
+      const operator = descParts.find(part => /^(?:TIM|VIVO|CLARO|TELY|GOOGLE|AMAZON|OI)$/i.test(part)) || '';
       
       return {
         raw: line,
@@ -1256,6 +1259,19 @@ Exemplo:
       };
     }
 
+    function compactHostKey(value) {
+      return String(value || '')
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, '')
+        .replace(/(\D)0+(\d+)$/, '$1$2');
+    }
+
+    function resolveRemoteHost(value, sourceHosts) {
+      if (!value || /^BR[.-]/i.test(value)) return value;
+      const compactTarget = compactHostKey(value);
+      return sourceHosts.find(host => compactHostKey(host).endsWith(compactTarget)) || value;
+    }
+
     // Check if interface is trunk
     function isTrunk(localInterface) {
       if (!localInterface) return false;
@@ -1265,13 +1281,12 @@ Exemplo:
     // Learn from alarms
     function learnFromAlarms(alarmText) {
       const lines = alarmText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const records = lines.map(parseAlarmLine).filter(Boolean);
+      const sourceHosts = new Set(records.map(record => record.sourceHost));
       
-      lines.forEach(line => {
-        const record = parseAlarmLine(line);
-        if (!record) return;
-        
+      records.forEach(record => {
         const sourceHost = record.sourceHost;
-        const targetHost = record.remoteEquipment;
+        const targetHost = resolveRemoteHost(record.remoteEquipment, sourceHosts);
         const deliveryType = record.deliveryType;
         const trigger = record.trigger;
         const localIface = record.localInterface;
