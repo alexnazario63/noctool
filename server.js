@@ -142,6 +142,35 @@ async function zabbixRequest(method, params, id, authenticated) {
 }
 
 const server = http.createServer((request, response) => {
+  if (request.url === "/api/city" && request.method === "POST") {
+    let body = "";
+    request.on("data", chunk => { body += chunk.toString(); });
+    request.on("end", async () => {
+      try {
+        const { query } = JSON.parse(body || "{}");
+        if (!query || typeof query !== "string") {
+          response.writeHead(400, { "Content-Type": "application/json" });
+          response.end(JSON.stringify({ error: "Informe o código CNL." }));
+          return;
+        }
+
+        const formData = new URLSearchParams({ q: query.trim().toLowerCase() });
+        const upstream = await fetch("https://dev.onerio.pw/raphael/index.php", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: formData.toString(),
+        });
+        const html = await upstream.text();
+        response.writeHead(upstream.ok ? 200 : upstream.status, { "Content-Type": "text/html; charset=utf-8" });
+        response.end(html);
+      } catch (error) {
+        response.writeHead(502, { "Content-Type": "application/json" });
+        response.end(JSON.stringify({ error: `Falha na consulta externa: ${error.message}` }));
+      }
+    });
+    return;
+  }
+
   if (request.url === "/api/zabbix/alarms" && request.method === "POST") {
     let body = "";
     request.on("data", chunk => { body += chunk.toString(); });

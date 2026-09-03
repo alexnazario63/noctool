@@ -939,30 +939,24 @@ Exemplo:
         return match;
       }
       
-      // 2. Query external endpoint if available, with safe silent catch for CORS
+      // Route the external lookup through the local server to avoid CORS.
       try {
-        const formData = new URLSearchParams();
-        formData.append('q', s.toLowerCase());
-        
-        const res = await fetch('https://dev.onerio.pw/raphael/index.php', {
+        const response = await fetch('/api/city', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: formData.toString()
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: s })
         });
-        
-        if (res && res.ok) {
-          const html = await res.text();
-          const parsed = parseCityResponse(html, expectedUf);
+        if (response.ok) {
+          const parsed = parseCityResponse(await response.text(), expectedUf);
           if (parsed) {
             cityCache.set(key, parsed);
             return parsed;
           }
         }
-      } catch (e) {
-        // Silent catch (CORS or network error)
+      } catch (error) {
+        // Keep the local fallback available when no backend is running.
       }
-      
-      // 3. Fallback to sigla/uf format
+
       const fallback = {
         municipio: s,
         uf: uf,
