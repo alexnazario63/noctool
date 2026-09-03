@@ -362,13 +362,12 @@
               </label>
               <label class="field wide">
                 <span data-i18n="alarmsDebugManual">Alarmes / debug manual</span>
-                <textarea id="massivasDebugAlarmsAlphaHidden" rows="8" data-i18n-placeholder="debugPlaceholder" placeholder="Cole aqui os alarmes retornados pelo Zabbix para testar a análise sem consultar a API"></textarea>
+                <textarea id="massivasDebugAlarmsAlphaHidden" rows="8" data-i18n-placeholder="debugPlaceholder" placeholder="Cole aqui os alarmes para testar a análise manual"></textarea>
               </label>
-              <p class="massivas-copy" data-i18n="zabbixNote">Ao consultar, a ferramenta busca o Zabbix em modo somente leitura. Se houver alarmes colados, usa o debug manual.</p>
+              <p class="massivas-copy" data-i18n="manualAnalysisNote">A análise usa os alarmes colados no campo de debug manual.</p>
               <div class="massivas-actions">
                 <button class="ghost-button massivas-prev" type="button"><i data-lucide="arrow-left"></i> <span data-i18n="back">Voltar</span></button>
-                <button class="primary-button" id="massivasConfirmStep1" type="button"><i data-lucide="check"></i> <span data-i18n="consultZabbixAdvance">Consultar Zabbix e avançar</span></button>
-                <button class="ghost-button" id="massivasDebugButton" type="button"><i data-lucide="bug"></i> <span data-i18n="testManualAnalysis">Testar análise manual</span></button>
+                <button class="primary-button" id="massivasDebugButton" type="button"><i data-lucide="scan-search"></i> <span data-i18n="generateManualAnalysis">Gerar análise manual</span></button>
               </div>
             </article>
 

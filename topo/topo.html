@@ -611,6 +611,51 @@ Exemplo:
     }
 
     const cityCache = new Map();
+    let turnstileConfigPromise;
+
+    function getTurnstileToken() {
+      if (!turnstileConfigPromise) {
+        turnstileConfigPromise = fetch('/api/config')
+          .then(response => response.ok ? response.json() : { turnstileSiteKey: '' })
+          .catch(() => ({ turnstileSiteKey: '' }));
+      }
+
+      return turnstileConfigPromise.then(config => {
+        if (!config.turnstileSiteKey) return '';
+
+        return new Promise((resolve, reject) => {
+          const finish = (token) => {
+            container.remove();
+            resolve(token);
+          };
+          const container = document.createElement('div');
+          container.hidden = true;
+          document.body.appendChild(container);
+
+          const render = () => {
+            const widgetId = turnstile.render(container, {
+              sitekey: config.turnstileSiteKey,
+              size: 'invisible',
+              callback: finish,
+              'error-callback': () => reject(new Error('Falha na validação de segurança.')),
+              'expired-callback': () => reject(new Error('A validação de segurança expirou.'))
+            });
+            turnstile.execute(widgetId);
+          };
+
+          if (window.turnstile) {
+            render();
+            return;
+          }
+
+          const script = document.createElement('script');
+          script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+          script.onload = render;
+          script.onerror = () => reject(new Error('Não foi possível carregar a validação de segurança.'));
+          document.head.appendChild(script);
+        });
+      });
+    }
 
     function extractHostMetadata(hostname) {
       const normalized = String(hostname || '').toUpperCase().replace(/[._]/g, '-');
@@ -939,22 +984,26 @@ Exemplo:
         return match;
       }
       
-      // Route the external lookup through the local server to avoid CORS.
-      try {
-        const response = await fetch('/api/city', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: s })
-        });
-        if (response.ok) {
-          const parsed = parseCityResponse(await response.text(), expectedUf);
-          if (parsed) {
-            cityCache.set(key, parsed);
-            return parsed;
+      const isStaticHosting = window.location.hostname.endsWith('.github.io');
+      if (!isStaticHosting) {
+        // Route the external lookup through the local server to avoid CORS.
+        try {
+          const turnstileToken = await getTurnstileToken();
+          const response = await fetch('/api/city', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: s, turnstileToken })
+          });
+          if (response.ok) {
+            const parsed = parseCityResponse(await response.text(), expectedUf);
+            if (parsed) {
+              cityCache.set(key, parsed);
+              return parsed;
+            }
           }
+        } catch (error) {
+          // Keep the local fallback available when no backend is running.
         }
-      } catch (error) {
-        // Keep the local fallback available when no backend is running.
       }
 
       const fallback = {

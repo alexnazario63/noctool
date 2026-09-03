@@ -249,13 +249,6 @@
     validateTopology: "Validar topologia, correlação temporal e novos alarmes antes de definir acionamento externo.",
     attachEvidence: "Anexar as evidências abaixo no chamado e atualizar conforme retorno das áreas acionadas.",
     
-    // Zabbix
-    consultingZabbix: "Consultando Zabbix...",
-    zabbixError: "Erro na consulta do Zabbix.",
-    zabbixNotConfigured: "Zabbix não configurado.",
-    noHostsFound: "Nenhum host correspondente encontrado no Zabbix.",
-    informHostToConsult: "Informe ao menos um host para consultar o Zabbix.",
-    
     // Massivas em desenvolvimento
     massivasInDevelopment: "Massivas em desenvolvimento",
     massivasDevText: "Este fluxo ainda está em desenvolvimento.",
@@ -267,10 +260,9 @@
     hostsMassiva: "Hosts da massiva",
     hostsPlaceholder: "Cole um host por linha",
     alarmsDebugManual: "Alarmes / debug manual",
-    debugPlaceholder: "Cole aqui os alarmes retornados pelo Zabbix para testar a análise sem consultar a API",
-    zabbixNote: "Ao consultar, a ferramenta busca o Zabbix em modo somente leitura. Se houver alarmes colados, usa o debug manual.",
-    consultZabbixAdvance: "Consultar Zabbix e avançar",
-    testManualAnalysis: "Testar análise manual",
+    debugPlaceholder: "Cole aqui os alarmes para testar a análise manual",
+    manualAnalysisNote: "A análise usa os alarmes colados no campo de debug manual.",
+    generateManualAnalysis: "Gerar análise manual",
     reviewAnalysis: "Revisar análise gerada",
     analysisTextNote: "O texto começa com ### ANÁLISE DA MASSIVA ### e já traz conclusão, direcionamento e evidências.",
     
@@ -346,7 +338,7 @@
     noValidEvidence: "Nenhuma evidência válida identificada.",
     alarmWithoutFields: "alarme sem campos estruturados",
     evidence: "Evidência",
-    withoutActiveAlarms: "Sem alarmes ativos retornados para os hosts informados. Validar se os hostnames foram colados conforme cadastro do Zabbix ou se a falha já normalizou antes da consulta.",
+    withoutActiveAlarms: "Nenhum alarme ativo foi identificado nos dados informados. Validar se os alarmes foram colados corretamente ou se a falha já foi normalizada.",
     noHostnameIdentified: "Nenhum hostname no padrão BR-UF-CNL-POP-FUNÇÃO-NN foi identificado nos alarmes.",
     oldestStart: "Início mais antigo identificado: {time}.",
     identifiedDomains: "Domínios identificados: {domains}.",
@@ -641,13 +633,6 @@
     validateTopology: "Validate topology, temporal correlation and new alarms before defining external activation.",
     attachEvidence: "Attach the evidence below to the ticket and update according to feedback from activated areas.",
     
-    // Zabbix
-    consultingZabbix: "Consulting Zabbix...",
-    zabbixError: "Error consulting Zabbix.",
-    zabbixNotConfigured: "Zabbix not configured.",
-    noHostsFound: "No matching host found in Zabbix.",
-    informHostToConsult: "Enter at least one host to consult Zabbix.",
-    
     // Massivas in development
     massivasInDevelopment: "Massivas in development",
     massivasDevText: "This flow is still under development.",
@@ -659,10 +644,9 @@
     hostsMassiva: "Massiva hosts",
     hostsPlaceholder: "Paste one host per line",
     alarmsDebugManual: "Alarms / manual debug",
-    debugPlaceholder: "Paste here the alarms returned by Zabbix to test the analysis without consulting the API",
-    zabbixNote: "When consulting, the tool searches Zabbix in read-only mode. If there are pasted alarms, it uses manual debug.",
-    consultZabbixAdvance: "Consult Zabbix and advance",
-    testManualAnalysis: "Test manual analysis",
+    debugPlaceholder: "Paste here the alarms to test the manual analysis",
+    manualAnalysisNote: "The analysis uses the alarms pasted in the manual debug field.",
+    generateManualAnalysis: "Generate manual analysis",
     reviewAnalysis: "Review generated analysis",
     analysisTextNote: "The text starts with ### MASSIVA ANALYSIS ### and already brings conclusion, direction and evidence.",
     
@@ -738,7 +722,7 @@
     noValidEvidence: "No valid evidence identified.",
     alarmWithoutFields: "alarm without structured fields",
     evidence: "Evidence",
-    withoutActiveAlarms: "No active alarms returned for the informed hosts. Validate if the hostnames were pasted according to Zabbix registration or if the failure already normalized before the consultation.",
+    withoutActiveAlarms: "No active alarm was identified in the informed data. Validate whether the alarms were pasted correctly or the failure has already normalized.",
     noHostnameIdentified: "No hostname in the BR-UF-CNL-POP-FUNCTION-NN pattern was identified in the alarms.",
     oldestStart: "Oldest start identified: {time}.",
     identifiedDomains: "Identified domains: {domains}.",
@@ -1033,13 +1017,6 @@
     validateTopology: "Validar topología, correlación temporal y nuevas alarmas antes de definir activación externa.",
     attachEvidence: "Adjuntar las evidencias abajo en el ticket y actualizar conforme retorno de las áreas activadas.",
     
-    // Zabbix
-    consultingZabbix: "Consultando Zabbix...",
-    zabbixError: "Error en la consulta de Zabbix.",
-    zabbixNotConfigured: "Zabbix no configurado.",
-    noHostsFound: "Ningún host correspondiente encontrado en Zabbix.",
-    informHostToConsult: "Informa al menos un host para consultar Zabbix.",
-    
     // Masivas en desarrollo
     massivasInDevelopment: "Masivas en desarrollo",
     massivasDevText: "Este flujo aún está en desarrollo.",
@@ -1051,10 +1028,9 @@
     hostsMassiva: "Hosts de la masiva",
     hostsPlaceholder: "Pega un host por línea",
     alarmsDebugManual: "Alarmas / debug manual",
-    debugPlaceholder: "Pega aquí las alarmas retornadas por Zabbix para probar el análisis sin consultar la API",
-    zabbixNote: "Al consultar, la herramienta busca Zabbix en modo solo lectura. Si hay alarmas pegadas, usa el debug manual.",
-    consultZabbixAdvance: "Consultar Zabbix y avanzar",
-    testManualAnalysis: "Probar análisis manual",
+    debugPlaceholder: "Pega aquí las alarmas para probar el análisis manual",
+    manualAnalysisNote: "El análisis usa las alarmas pegadas en el campo de depuración manual.",
+    generateManualAnalysis: "Generar análisis manual",
     reviewAnalysis: "Revisar análisis generado",
     analysisTextNote: "El texto comienza con ### ANÁLISIS DE MASIVA ### y ya trae conclusión, direccionamiento y evidencias.",
     
@@ -1130,7 +1106,7 @@
     noValidEvidence: "Ninguna evidencia válida identificada.",
     alarmWithoutFields: "alarma sin campos estructurados",
     evidence: "Evidencia",
-    withoutActiveAlarms: "Sin alarmas activas retornadas para los hosts informados. Validar si los hostnames fueron pegados conforme registro de Zabbix o si la falla ya se normalizó antes de la consulta.",
+    withoutActiveAlarms: "No se identificaron alarmas activas en los datos informados. Validar si las alarmas fueron pegadas correctamente o si la falla ya se normalizó.",
     noHostnameIdentified: "Ningún hostname en el patrón BR-UF-CNL-POP-FUNCION-NN fue identificado en las alarmas.",
     oldestStart: "Inicio más antiguo identificado: {time}.",
     identifiedDomains: "Dominios identificados: {domains}.",

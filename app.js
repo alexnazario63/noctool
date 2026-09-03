@@ -2,10 +2,6 @@
 const DEFAULT_OUTAGE_TEXT = "transporte de capacidade indisponível";
 const FOREIGN_PARTNERS = new Set(["AMAZON", "GOOGLE"]);
 
-// Integração Zabbix - Massivas
-const ZABBIX_API_URL = ""; // Ex: "https://zabbix.suaempresa.com.br/api_jsonrpc.php"
-const ZABBIX_API_TOKEN = ""; // Adicione seu token de API Zabbix somente leitura aqui
-
 function buildActionTaken(partnerName) {
   return `Aberto chamado com parceiro ${partnerName || "Operadora"}`;
 }
@@ -366,7 +362,6 @@ function bindEvents() {
   document.getElementById("autoFinishButton").addEventListener("click", restartAutoFlow);
   document.getElementById("massivasFinishButton").addEventListener("click", restartMassivasFlow);
   document.getElementById("autoConfirmStep1").addEventListener("click", confirmAutoStepOne);
-  document.getElementById("massivasConfirmStep1").addEventListener("click", confirmMassivasStepOne);
   document.getElementById("massivasDebugButton").addEventListener("click", runMassivasDebugAnalysis);
   document.getElementById("cancelParametersButton").addEventListener("click", closeParametersDialog);
   document.getElementById("closeParametersButton").addEventListener("click", closeParametersDialog);
@@ -724,54 +719,6 @@ function formatMassivasOpeningLine(record) {
   return `${record.time ? `${record.time} ` : ""}${trimmedLine}`.trim();
 }
 
-async function confirmMassivasStepOne() {
-  const btn = document.getElementById("massivasConfirmStep1");
-  if (btn) {
-    btn.dataset.originalText = btn.textContent;
-    btn.textContent = "Consultando Zabbix...";
-    btn.disabled = true;
-  }
-
-  try {
-    await renderMassivasSummary();
-  } catch (error) {
-    console.error("Erro ao consultar Zabbix:", error);
-    showToast("Erro na consulta do Zabbix.", "error");
-    setValue("massivasSummary", buildMassivasSummaryFallback());
-  } finally {
-    if (btn) {
-      btn.textContent = btn.dataset.originalText || "Avançar";
-      btn.disabled = false;
-    }
-    showMassivasStep(3);
-  }
-}
-
-async function renderMassivasSummary() {
-  const hostsText = getValue("massivasHosts");
-  const hosts = splitLines(hostsText).map(h => h.trim().toUpperCase());
-  const debugAlarms = getValue("massivasDebugAlarms");
-
-  if (debugAlarms) {
-    setValue("massivasSummary", buildMassivasAnalysis(hosts, debugAlarms));
-    return;
-  }
-
-  let alarmsText = "Informe ao menos um host para consultar o Zabbix.";
-
-  if (hosts.length > 0) {
-    alarmsText = await fetchZabbixAlarms(hosts);
-  }
-
-  setValue("massivasSummary", buildMassivasAnalysis(hosts, alarmsText));
-}
-
-function buildMassivasSummaryFallback() {
-  const hostsText = getValue("massivasHosts");
-  const hosts = splitLines(hostsText).map(h => h.trim().toUpperCase());
-  return buildMassivasAnalysis(hosts, getValue("massivasDebugAlarms"));
-}
-
 function buildMassivasRecognize() {
   const subject = getValue("massivasBdeskSubject").replace(/^(Aut\s+Bdesk:#|authbdesk#)\s*/i, "").trim();
   return subject ? `Aut Bdesk:# ${subject}` : "";
@@ -813,34 +760,6 @@ function runMassivasDebugAnalysis() {
   setValue("massivasSummary", buildMassivasAnalysis(hosts, debugAlarms));
   setStatus("Análise manual de massiva gerada.");
   showMassivasStep(3);
-}
-
-async function fetchZabbixAlarms(hosts) {
-  try {
-    const response = await fetch("/api/zabbix/alarms", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ hosts }),
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || "Falha ao consultar Zabbix.");
-    }
-
-    if (data.configured === false) {
-      return data.message || "Zabbix não configurado.";
-    }
-
-    if (!data.alarms || data.alarms.length === 0) {
-      return "Nenhum host correspondente encontrado no Zabbix.";
-    }
-
-    return data.alarms.map((alarm) => `- ${alarm}`).join("\n");
-  } catch (error) {
-    console.error("Erro na API do Zabbix:", error);
-    return `Erro ao consultar Zabbix: ${error.message}`;
-  }
 }
 
 const triggerCatalog = {
@@ -962,7 +881,7 @@ function buildMassivasConclusion(context) {
   } = context;
 
   if (!validRecords.length) {
-    return "Sem alarmes ativos retornados para os hosts informados. Validar se os hostnames foram colados conforme cadastro do Zabbix ou se a falha já normalizou antes da consulta.";
+    return "Nenhum alarme ativo foi identificado nos dados informados. Validar se os alarmes foram colados corretamente ou se a falha já foi normalizada.";
   }
 
   const hostText = affectedHosts.length ? `Hosts afetados: ${affectedHosts.join(", ")}.` : "Nenhum hostname no padrão BR-UF-CNL-POP-FUNÇÃO-NN foi identificado nos alarmes.";
@@ -4227,37 +4146,10 @@ function extractFailureTime(text) {
     match = brPattern.exec(text);
   }
 
-  const zabbixMarkdownPattern = /\[(\d{2}):(\d{2}):(\d{2})\]\([^)]*\/zabbix\/[^)]*\)/gi;
-  match = zabbixMarkdownPattern.exec(text);
-  while (match) {
-    timestamps.push(zabbixTimeToTimestamp(match[1], match[2], match[3]));
-    match = zabbixMarkdownPattern.exec(text);
-  }
-
-  const zabbixTabPattern = /(?:^|\n)(\d{2}):(\d{2}):(\d{2})(?=[^\n]*\bPROBLEM\b)/gi;
-  match = zabbixTabPattern.exec(text);
-  while (match) {
-    timestamps.push(zabbixTimeToTimestamp(match[1], match[2], match[3]));
-    match = zabbixTabPattern.exec(text);
-  }
-
   if (!timestamps.length) return "";
 
   timestamps.sort((left, right) => left.date - right.date);
   return timestamps[0].raw;
-}
-
-function zabbixTimeToTimestamp(hour, minute, second) {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  const raw = `${year}-${month}-${day} ${hour}:${minute}:${second}`;
-
-  return {
-    raw,
-    date: new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}`),
-  };
 }
 
 function extractBdeskTitle(text) {
