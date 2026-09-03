@@ -7,7 +7,7 @@
     // Título e branding
     appTitle: "NOC IP TOOL",
     developedBy: "Developed by Alexsander",
-    version: "Version 3.7",
+    version: "Version 3.7.1",
     versionPrefix: "Version",
     
     // Changelog
@@ -395,7 +395,7 @@
     // Title and branding
     appTitle: "NOC IP TOOL",
     developedBy: "Developed by Alexsander",
-    version: "Version 3.7",
+    version: "Version 3.7.1",
     versionPrefix: "Version",
     
     // Changelog
@@ -787,7 +787,7 @@
     // Título y branding
     appTitle: "NOC IP TOOL",
     developedBy: "Developed by Alexsander",
-    version: "Version 3.7",
+    version: "Version 3.7.1",
     versionPrefix: "Version",
     
     // Changelog
