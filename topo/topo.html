@@ -1269,7 +1269,7 @@ Exemplo:
     function resolveRemoteHost(value, sourceHosts) {
       if (!value || /^BR[.-]/i.test(value)) return value;
       const compactTarget = compactHostKey(value);
-      return sourceHosts.find(host => compactHostKey(host).endsWith(compactTarget)) || value;
+      return Array.from(sourceHosts || []).find(host => compactHostKey(host).endsWith(compactTarget)) || value;
     }
 
     // Check if interface is trunk
