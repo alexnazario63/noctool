@@ -4002,6 +4002,7 @@ function updateGreeting() {
   const greetingLanguage = FOREIGN_PARTNERS.has(partner) ? getLang() : "pt";
   const greeting = translations[greetingLanguage]?.[greetingKey] || translations.pt[greetingKey];
   fields.greeting.value = greeting;
+  return greeting;
 }
 
 function syncSymptomWithFailureType() {
@@ -4614,9 +4615,10 @@ function buildUpdate() {
 function buildEmail() {
   const carrier = normalizeCarrierKey(getValue("carrier"));
   if (carrier === "TELEBRAS") return buildTelebrasRequest();
+  const greeting = updateGreeting();
 
   const lines = [
-    `${getValue("greeting")};`,
+    `${greeting};`,
     DEFAULT_EMAIL_INTRO,
     "",
   ];
