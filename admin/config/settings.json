@@ -1,0 +1,9 @@
+{
+  "appName": "NOC IP TOOL",
+  "defaultLanguage": "pt",
+  "cityProxy": "/api/city",
+  "foreignPartners": "GOOGLE, AMAZON",
+  "adminContact": "",
+  "theme": "light",
+  "adminNotes": ""
+}
