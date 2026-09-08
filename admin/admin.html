@@ -179,22 +179,6 @@
     const $$ = (selector) => [...document.querySelectorAll(selector)];
     const clone = (value) => JSON.parse(JSON.stringify(value));
 
-    async function readResponseJson(response) {
-      const text = await response.text();
-      const contentType = response.headers.get('content-type') || '';
-      if (!contentType.includes('application/json')) {
-        if (response.status === 404 || response.status === 405) {
-          throw new Error('O painel administrativo precisa ser servido pelo backend. Abra pelo endereço do server.js, não pelo GitHub Pages.');
-        }
-        throw new Error(`Resposta inválida do servidor (HTTP ${response.status}).`);
-      }
-      try {
-        return JSON.parse(text);
-      } catch (error) {
-        throw new Error('Resposta JSON inválida do servidor.');
-      }
-    }
-
     function showStatus(message) {
       const status = $('#status');
       status.textContent = message;
@@ -254,7 +238,7 @@
       try {
         const response = await fetch('/api/admin/config', { headers: { Accept: 'application/json' } });
         if (!response.ok) return false;
-        const modules = await readResponseJson(response);
+        const modules = await response.json();
         applyModules(modules);
         return true;
       } catch (error) {
@@ -265,11 +249,10 @@
     async function saveServerConfig(commitToGithub = false) {
       const payload = { modules: modulePayload() };
       const response = await fetch('/api/admin/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      const serverResult = await readResponseJson(response);
-      if (!response.ok) throw new Error(serverResult.error || 'Falha ao salvar no servidor.');
+      if (!response.ok) throw new Error((await response.json()).error || 'Falha ao salvar no servidor.');
       if (commitToGithub) {
         const githubResponse = await fetch('/api/admin/github', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        const githubResult = await readResponseJson(githubResponse);
+        const githubResult = await githubResponse.json();
         if (!githubResponse.ok) throw new Error(githubResult.error || 'Falha ao publicar no GitHub.');
         showStatus(`Publicado v${githubResult.version} em ${githubResult.repository}:${githubResult.branch}.`);
       } else {
@@ -279,26 +262,19 @@
     }
 
     async function authenticate() {
-      if (window.location.hostname.endsWith('.github.io')) {
-        throw new Error('O painel administrativo precisa ser servido pelo backend. O GitHub Pages não executa login, SQLite ou publicação GitHub.');
-      }
       const response = await fetch('/api/admin/session', { headers: { Accept: 'application/json' } });
-      const session = await readResponseJson(response);
+      const session = await response.json();
       if (!session.authenticated) return false;
       $('#authGate').hidden = true;
       return true;
     }
 
     async function initializeAdmin() {
-      try {
-        if (!await authenticate()) return;
-        loadConfig();
-        await loadProjectData();
-        await loadServerConfig();
-        renderAll();
-      } catch (error) {
-        $('#authError').textContent = error.message;
-      }
+      if (!await authenticate()) return;
+      loadConfig();
+      await loadProjectData();
+      await loadServerConfig();
+      renderAll();
     }
 
     function renderOverview() {
@@ -379,7 +355,7 @@
       error.textContent = '';
       try {
         const response = await fetch('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: $('#authUsername').value, password: $('#authPassword').value }) });
-        const result = await readResponseJson(response);
+        const result = await response.json();
         if (!response.ok) throw new Error(result.error || 'Falha ao autenticar.');
         await initializeAdmin();
       } catch (loginError) {
