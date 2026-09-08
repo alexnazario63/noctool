@@ -1,5 +1,0 @@
-{
-  "version": 1,
-  "modules": ["messages", "partners", "failures", "settings"],
-  "updatedAt": ""
-}

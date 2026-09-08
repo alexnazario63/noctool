@@ -1,42 +1,6 @@
 ﻿const DEFAULT_EMAIL_INTRO = "Estamos com transporte de capacidade indisponível, verificar com urgência.";
 const DEFAULT_OUTAGE_TEXT = "transporte de capacidade indisponível";
 const FOREIGN_PARTNERS = new Set(["AMAZON", "GOOGLE"]);
-const ADMIN_CONFIG_STORAGE_KEY = "nocAdminConfig";
-
-function getAdminConfig() {
-  try {
-    const config = JSON.parse(localStorage.getItem(ADMIN_CONFIG_STORAGE_KEY) || "null");
-    return config && typeof config === "object" ? config : null;
-  } catch (error) {
-    return null;
-  }
-}
-
-function getAdminMessage(key, fallback) {
-  return getAdminConfig()?.messages?.[key] || fallback;
-}
-
-function getConfiguredForeignPartners() {
-  const configured = getAdminConfig()?.settings?.foreignPartners || "";
-  return new Set(String(configured).split(",").map(normalizePartnerLookup).filter(Boolean));
-}
-
-async function syncAdminConfigFromServer() {
-  try {
-    const response = await fetch("/api/admin/config", { headers: { Accept: "application/json" } });
-    if (!response.ok) return;
-    const modules = await response.json();
-    const current = getAdminConfig() || {};
-    localStorage.setItem(ADMIN_CONFIG_STORAGE_KEY, JSON.stringify({
-      ...current,
-      ...modules,
-      messages: { ...(current.messages || {}), ...(modules.messages || {}) },
-      settings: { ...(current.settings || {}), ...(modules.settings || {}) },
-    }));
-  } catch (error) {
-    // Static hosting continues with the browser cache and bundled defaults.
-  }
-}
 
 // Integração Zabbix - Massivas
 const ZABBIX_API_URL = ""; // Ex: "https://zabbix.suaempresa.com.br/api_jsonrpc.php"
@@ -3877,21 +3841,15 @@ function debounce(callback, delay) {
 
 async function loadDescriptionData() {
   try {
-    await syncAdminConfigFromServer();
     const [cnl, failureTypes, partners] = await Promise.all([
       fetchJson(dataUrls.cnl),
       fetchJson(dataUrls.failureTypes),
       fetchJson(dataUrls.partners),
     ]);
 
-    const adminConfig = getAdminConfig();
     descriptionData.cnl = cnl;
-    descriptionData.failureTypes = Object.keys(adminConfig?.failures || {}).length
-      ? adminConfig.failures
-      : failureTypes[0] || {};
-    descriptionData.partners = Array.isArray(adminConfig?.partners) && adminConfig.partners.length
-      ? adminConfig.partners.map(partner => partner.name).filter(Boolean)
-      : partners;
+    descriptionData.failureTypes = failureTypes[0] || {};
+    descriptionData.partners = partners;
     descriptionData.loaded = true;
     fillDatalist("failureTypesList", Object.keys(descriptionData.failureTypes));
     fillDatalist("partnersList", mergePartnerOptions(descriptionData.partners));
@@ -4041,9 +3999,8 @@ function updateGreeting() {
   const hour = new Date().getHours();
   const greetingKey = hour < 12 ? "goodMorning" : hour < 18 ? "goodAfternoon" : "goodEvening";
   const partner = normalizePartnerLookup(getValue("carrier"));
-  const foreignPartners = new Set([...FOREIGN_PARTNERS, ...getConfiguredForeignPartners()]);
-  const greetingLanguage = foreignPartners.has(partner) ? getLang() : "pt";
-  const greeting = getAdminMessage(greetingKey, translations[greetingLanguage]?.[greetingKey] || translations.pt[greetingKey]);
+  const greetingLanguage = FOREIGN_PARTNERS.has(partner) ? getLang() : "pt";
+  const greeting = translations[greetingLanguage]?.[greetingKey] || translations.pt[greetingKey];
   fields.greeting.value = greeting;
   return greeting;
 }
@@ -4662,7 +4619,7 @@ function buildEmail() {
 
   const lines = [
     `${greeting};`,
-    getAdminMessage("emailIntro", DEFAULT_EMAIL_INTRO),
+    DEFAULT_EMAIL_INTRO,
     "",
   ];
 
@@ -4679,9 +4636,9 @@ function buildEmail() {
     `Chamado Interno: ${getValue("internalTicket")}`,
     `Contato: ${getValue("contact")}`,
     "",
-    getAdminMessage("emailWaiting", "Ficamos no aguardo do protocolo"),
+    "Ficamos no aguardo do protocolo",
     "",
-    getAdminMessage("emailRegards", "Atenciosamente"),
+    "Atenciosamente",
   );
 
   return lines.join("\n");
