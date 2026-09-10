@@ -1,7 +1,13 @@
+function getDb(env) {
+  if (!env) return null;
+  return env.DB || env.noctool || null;
+}
+
 async function recordApiEvent(env, route, statusCode, errorMessage) {
-  if (!env || !env.DB) return;
+  const db = getDb(env);
+  if (!db) return;
   try {
-    await env.DB.prepare(
+    await db.prepare(
       "INSERT INTO api_events (route, status_code, error_message) VALUES (?, ?, ?)",
     ).bind(route, statusCode, errorMessage || null).run();
   } catch (error) {
@@ -31,9 +37,10 @@ async function verifyTurnstile(request, env, token) {
 }
 
 async function readCityCache(env, query) {
-  if (!env || !env.DB) return null;
+  const db = getDb(env);
+  if (!db) return null;
   try {
-    return await env.DB.prepare(
+    return await db.prepare(
       "SELECT response_html, status_code FROM city_cache WHERE query = ? AND expires_at > unixepoch()",
     ).bind(query).first();
   } catch (error) {
@@ -43,9 +50,10 @@ async function readCityCache(env, query) {
 }
 
 async function writeCityCache(env, query, html, statusCode) {
-  if (!env || !env.DB || statusCode < 200 || statusCode >= 300) return;
+  const db = getDb(env);
+  if (!db || statusCode < 200 || statusCode >= 300) return;
   try {
-    await env.DB.prepare(
+    await db.prepare(
       "INSERT INTO city_cache (query, response_html, status_code, expires_at) VALUES (?, ?, ?, unixepoch() + 86400) ON CONFLICT(query) DO UPDATE SET response_html = excluded.response_html, status_code = excluded.status_code, expires_at = excluded.expires_at",
     ).bind(query, html, statusCode).run();
   } catch (error) {

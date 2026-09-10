@@ -1,4 +1,4 @@
-﻿const translations = {
+const translations = {
   pt: {
     // Idioma
     langName: "Português",
@@ -7,7 +7,7 @@
     // Título e branding
     appTitle: "NOC IP TOOL",
     developedBy: "Developed by Alexsander",
-    version: "Version 3.7.1",
+    version: "Version 3.7.2",
     versionPrefix: "Version",
     
     // Changelog
@@ -387,7 +387,7 @@
     // Title and branding
     appTitle: "NOC IP TOOL",
     developedBy: "Developed by Alexsander",
-    version: "Version 3.7.1",
+    version: "Version 3.7.2",
     versionPrefix: "Version",
     
     // Changelog
@@ -771,7 +771,7 @@
     // Título y branding
     appTitle: "NOC IP TOOL",
     developedBy: "Developed by Alexsander",
-    version: "Version 3.7.1",
+    version: "Version 3.7.2",
     versionPrefix: "Version",
     
     // Changelog

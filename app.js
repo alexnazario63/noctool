@@ -1,4 +1,4 @@
-﻿const DEFAULT_EMAIL_INTRO = "Estamos com transporte de capacidade indisponível, verificar com urgência.";
+const DEFAULT_EMAIL_INTRO = "Estamos com transporte de capacidade indisponível, verificar com urgência.";
 const DEFAULT_OUTAGE_TEXT = "transporte de capacidade indisponível";
 const FOREIGN_PARTNERS = new Set(["AMAZON", "GOOGLE"]);
 
@@ -744,6 +744,33 @@ function buildMassivasManualUpdate() {
   lines.push(`${withEmoji("⏳", "PREVISÃO")}: ${getValue("massivasUpdateForecast") || "Sem previsão"};`);
   lines.push(`${withEmoji("➡️", "PRÓXIMA AÇÃO")}: ${getValue("massivasUpdateNextAction")};`);
 
+  return lines.join("\n");
+}
+
+function buildMassivasSummaryFallback() {
+  const debugAlarms = getValue("massivasDebugAlarms");
+  const hostsText = getValue("massivasHosts");
+  const hosts = splitLines(hostsText).map(h => h.trim().toUpperCase()).filter(Boolean);
+
+  if (debugAlarms && typeof buildMassivasAnalysis === "function") {
+    try {
+      const analysis = buildMassivasAnalysis(hosts, debugAlarms);
+      if (analysis) return analysis;
+    } catch (e) {
+      console.warn("Falha ao gerar analise automatica de massiva:", e);
+    }
+  }
+
+  const lines = [
+    `### ${withEmoji("🚨", "ATUALIZAÇÃO DA MASSIVA")} ###`,
+    "",
+    `${withEmoji("🔎", "ANALISE")}: `,
+    `${withEmoji("⏳", "PREVISÃO DE NORMALIZAÇÃO")}: Sem previsão.`,
+    `${withEmoji("➡️", "PRÓXIMA AÇÃO")}: `,
+    "",
+    `${withEmoji("🖥️", "HOSTS INFORMADOS")}:`,
+    ...(hosts.length ? hosts.map(h => `- ${h}`) : ["- Nenhum host informado."])
+  ];
   return lines.join("\n");
 }
 
@@ -4985,7 +5012,7 @@ function showToast(message, icon = "success") {
    APP VERSIONING & DEEP CACHE PURGE SYSTEM
    ========================================================================== */
 
-const CURRENT_APP_VERSION = "3.7.1";
+const CURRENT_APP_VERSION = "3.7.2";
 const APP_BUILD_TIMESTAMP = "2026-09-02";
 let detectedNewServerVersion = null;
 
