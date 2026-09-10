@@ -1,749 +1,1248 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-bs-theme="light">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>NOC IP TOOL</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css">
+    
+    <!-- Bootstrap 5.3.3 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons 1.11.3 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    
+    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=3.7.2">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Animate.css -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css">
+    
+    <!-- Existing custom styles + Modern Bootstrap Theme -->
+    <link rel="stylesheet" href="styles.css?v=4.0.0">
+    <link rel="stylesheet" href="styles-bootstrap.css?v=4.0.0">
     <link rel="stylesheet" href="topology-styles.css">
+    
     <style>
-      .lang-selector {
-        display: flex;
-        gap: 4px;
-        margin-left: 12px;
+      /* Smooth transitions and layout adjustments */
+      .app-view-container {
+        display: none;
       }
-      .lang-btn {
-        padding: 4px 8px;
-        border: 1px solid rgba(255,255,255,0.3);
-        background: transparent;
-        color: inherit;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 12px;
-        font-weight: 600;
-        transition: all 0.2s;
+      body.app-not-started #launchScreen {
+        display: block;
       }
-      .lang-btn:hover {
-        background: rgba(255,255,255,0.1);
+      body.app-mode-auto #autoFlow {
+        display: block;
       }
-      .lang-btn.active {
-        background: rgba(255,255,255,0.2);
-        border-color: rgba(255,255,255,0.5);
+      body.app-mode-massivas #massivasFlow {
+        display: block;
+      }
+      body.app-mode-manual #workspace {
+        display: block;
+      }
+      
+      /* Ensure Three.js canvas doesn't block interactions */
+      #threeBackground {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        opacity: 0.18;
+      }
+      #appLayoutWrapper {
+        position: relative;
+        z-index: 1;
       }
     </style>
   </head>
   <body class="app-not-started">
+    <!-- Top Progress Bar -->
     <div id="appTopProgressBar" class="app-top-progress" hidden aria-hidden="true">
       <div class="app-top-progress-bar" id="appTopProgressFill"></div>
     </div>
-    <div id="nocLoadingOverlay" class="noc-loading-overlay" aria-hidden="true">
+
+    <!-- Loading Overlay -->
+    <div id="nocLoadingOverlay" class="noc-loading-overlay" aria-hidden="true" style="z-index: 99999;">
       <div class="noc-loading-card">
         <div class="noc-spinner"></div>
         <p id="nocLoadingText" class="noc-loading-text" data-i18n="loading">Processando...</p>
       </div>
     </div>
+
+    <!-- Three.js Ambient Canvas Background -->
     <canvas id="threeBackground" class="three-background" aria-hidden="true"></canvas>
-    <section class="launch-screen" id="launchScreen" aria-label="Apresentação NOC IP TOOL">
-      <div class="launch-modal animate__animated animate__fadeInUp">
-        <div class="launch-grid">
-          <div class="launch-copy">
-            <div class="brand launch-brand">
-              <span class="brand-mark" aria-hidden="true"><i data-lucide="radio-tower"></i></span>
+
+    <!-- Mobile Backdrop for Sidebar -->
+    <div id="sidebarBackdrop" class="sidebar-backdrop"></div>
+
+    <!-- Main Layout Wrapper -->
+    <div id="appLayoutWrapper">
+      
+      <!-- ====================================================================
+           COLLAPSIBLE SIDEBAR
+           ==================================================================== -->
+      <aside id="sidebarWrapper">
+        <!-- Sidebar Header / Brand -->
+        <div class="sidebar-header">
+          <a href="#" class="sidebar-brand" id="sidebarBrandLink" title="NOC IP TOOL">
+            <div class="sidebar-brand-icon">
+              <i class="bi bi-broadcast-pin"></i>
+            </div>
+            <div class="sidebar-brand-text">
+              <span class="sidebar-brand-title" data-i18n="appTitle">NOC IP TOOL</span>
+              <span class="sidebar-brand-subtitle"><span data-i18n="version">v4.0.0</span> • Core</span>
+            </div>
+          </a>
+          <button class="btn btn-sm btn-light border-0 text-secondary sidebar-collapse-btn-icon-right d-none d-lg-flex align-items-center justify-content-center p-1 rounded" id="sidebarToggleBtnHeader" title="Recolher menu">
+            <i class="bi bi-chevron-left" id="sidebarCollapseChevron"></i>
+          </button>
+        </div>
+
+        <!-- Sidebar Navigation Menu -->
+        <div class="sidebar-nav">
+          <div class="sidebar-heading">Principal</div>
+          <ul class="nav flex-column mb-3">
+            <li class="nav-item">
+              <a class="nav-link active" href="#" id="sidebarNavHome" data-bs-toggle="tooltip" data-bs-placement="right" title="Visão Geral / Início">
+                <i class="bi bi-house-door nav-icon"></i>
+                <span class="nav-text" data-i18n="home">Início</span>
+              </a>
+            </li>
+          </ul>
+
+          <div class="sidebar-heading">Operações NOC</div>
+          <ul class="nav flex-column mb-3">
+            <!-- Collapsible Group: Fluxos Guiados -->
+            <li class="nav-item">
+              <a class="nav-link d-flex align-items-center justify-content-between" data-bs-toggle="collapse" href="#collapseFluxos" role="button" aria-expanded="true" aria-controls="collapseFluxos">
+                <div class="d-flex align-items-center">
+                  <i class="bi bi-lightning-charge nav-icon text-warning"></i>
+                  <span class="nav-text">Fluxos Guiados</span>
+                </div>
+                <i class="bi bi-chevron-down nav-arrow"></i>
+              </a>
+              <div class="collapse show" id="collapseFluxos">
+                <ul class="sidebar-submenu">
+                  <li class="nav-item">
+                    <a class="nav-link" href="#" id="sidebarNavAuto" data-bs-toggle="tooltip" data-bs-placement="right" title="Fluxo de Capacidades (5 Passos)">
+                      <i class="bi bi-magic me-2"></i>
+                      <span class="nav-text" data-i18n="capabilities">Capacidades</span>
+                      <span class="badge bg-primary-subtle text-primary ms-auto badge-hide-collapsed">5 passos</span>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a class="nav-link" href="#" id="sidebarNavMassivas" data-bs-toggle="tooltip" data-bs-placement="right" title="Fluxo de Massivas e Topologia">
+                      <i class="bi bi-layers me-2"></i>
+                      <span class="nav-text" data-i18n="massivas">MASSIVAS</span>
+                      <span class="badge bg-danger-subtle text-danger ms-auto badge-hide-collapsed">Topo 3D</span>
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            </li>
+
+            <!-- Collapsible Group: Ferramentas -->
+            <li class="nav-item">
+              <a class="nav-link d-flex align-items-center justify-content-between" data-bs-toggle="collapse" href="#collapseTools" role="button" aria-expanded="true" aria-controls="collapseTools">
+                <div class="d-flex align-items-center">
+                  <i class="bi bi-tools nav-icon text-info"></i>
+                  <span class="nav-text">Ferramentas</span>
+                </div>
+                <i class="bi bi-chevron-down nav-arrow"></i>
+              </a>
+              <div class="collapse show" id="collapseTools">
+                <ul class="sidebar-submenu">
+                  <li class="nav-item">
+                    <a class="nav-link" href="#" id="sidebarNavManual" data-bs-toggle="tooltip" data-bs-placement="right" title="Edição Manual e Modelos Rápidos">
+                      <i class="bi bi-sliders me-2"></i>
+                      <span class="nav-text" data-i18n="manualEdit">Edição Manual</span>
+                    </a>
+                  </li>
+                  <li class="nav-item">
+                    <a class="nav-link" href="topo/topo.html" target="_blank" data-bs-toggle="tooltip" data-bs-placement="right" title="Abrir Topologia em Tela Cheia">
+                      <i class="bi bi-diagram-3 me-2"></i>
+                      <span class="nav-text">Topologia Fullscreen</span>
+                      <i class="bi bi-box-arrow-up-right ms-auto text-secondary small badge-hide-collapsed"></i>
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            </li>
+          </ul>
+
+          <div class="sidebar-heading">Ajustes & Sistema</div>
+          <ul class="nav flex-column mb-2">
+            <li class="nav-item">
+              <a class="nav-link" href="#" id="sidebarNavParameters" data-bs-toggle="tooltip" data-bs-placement="right" title="Parâmetros do Analista">
+                <i class="bi bi-person-gear nav-icon"></i>
+                <span class="nav-text" data-i18n="parameters">Parâmetros</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Sidebar Footer -->
+        <div class="sidebar-footer">
+          <div class="d-flex align-items-center justify-content-between gap-2">
+            <!-- Theme Toggle -->
+            <button class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1 flex-grow-1 justify-content-center" id="themeQuickToggleBtn" title="Alternar Tema Claro / Escuro">
+              <i class="bi bi-moon-stars" id="themeIcon"></i>
+              <span class="sidebar-footer-text small">Tema</span>
+            </button>
+            <!-- Collapse / Expand Button -->
+            <button class="btn btn-sm btn-outline-secondary d-flex align-items-center justify-content-center" id="sidebarToggleBtnFooter" title="Recolher / Expandir menu" style="width: 34px; height: 32px;">
+              <i class="bi bi-layout-sidebar-inset"></i>
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- ====================================================================
+           MAIN PAGE CONTENT WRAPPER
+           ==================================================================== -->
+      <div id="pageContentWrapper">
+        
+        <!-- Top Navbar -->
+        <header class="top-navbar d-flex align-items-center justify-content-between">
+          <div class="d-flex align-items-center gap-3">
+            <!-- Mobile Hamburger -->
+            <button class="btn btn-sm btn-outline-secondary d-lg-none d-flex align-items-center justify-content-center" id="sidebarMobileToggleBtn" aria-label="Abrir menu lateral">
+              <i class="bi bi-list fs-5"></i>
+            </button>
+            <!-- Desktop Collapse Toggle -->
+            <button class="btn btn-sm btn-outline-secondary d-none d-lg-flex align-items-center gap-2" id="sidebarDesktopToggleBtn" title="Recolher/Expandir menu lateral">
+              <i class="bi bi-layout-sidebar"></i>
+              <span class="d-none d-xl-inline small">Menu</span>
+            </button>
+
+            <!-- Breadcrumb / Section Header Indicator -->
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle d-none d-sm-inline-flex" id="topNavSectionBadge">Dashboard</span>
+              <h1 class="h6 mb-0 fw-bold" id="topNavCurrentTitle">Visão Geral</h1>
+            </div>
+          </div>
+
+          <div class="d-flex align-items-center gap-2">
+            <!-- Online status pill -->
+            <span class="badge bg-success-subtle text-success border border-success-subtle d-none d-md-inline-flex align-items-center gap-2 py-2 px-2.5">
+              <span class="status-indicator-dot"></span>
+              <span>NOC LIVE</span>
+            </span>
+
+            <!-- Language Dropdown -->
+            <div class="dropdown">
+              <button class="btn btn-sm btn-outline-secondary dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="currentLangBtn">
+                <i class="bi bi-translate"></i> <span id="currentLangText">PT</span>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                <li><button class="dropdown-item lang-btn active" type="button" data-lang="pt" onclick="setLang('pt', event)"><span class="me-2">🇧🇷</span> Português</button></li>
+                <li><button class="dropdown-item lang-btn" type="button" data-lang="en" onclick="setLang('en', event)"><span class="me-2">🇺🇸</span> English</button></li>
+                <li><button class="dropdown-item lang-btn" type="button" data-lang="es" onclick="setLang('es', event)"><span class="me-2">🇪🇸</span> Español</button></li>
+              </ul>
+            </div>
+
+            <!-- Parameters Shortcut -->
+            <button class="btn btn-sm btn-outline-secondary" id="navParametersShortcutBtn" title="Configurações e Parâmetros">
+              <i class="bi bi-gear"></i>
+            </button>
+          </div>
+        </header>
+
+        <!-- Main Content Viewport -->
+        <main class="container-fluid p-3 p-md-4 flex-grow-1">
+
+          <!-- ================================================================
+               VIEW 1: LAUNCH / DASHBOARD
+               ================================================================ -->
+          <section class="app-view-container animate__animated animate__fadeIn" id="launchScreen" aria-label="Apresentação NOC IP TOOL">
+            <div class="row g-4 mb-4">
+              <!-- Welcome Hero Card -->
+              <div class="col-12">
+                <div class="card card-noc p-4 border-0">
+                  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+                    <div class="d-flex align-items-center gap-3">
+                      <div class="sidebar-brand-icon" style="width: 52px; height: 52px; font-size: 1.6rem;">
+                        <i class="bi bi-broadcast-pin"></i>
+                      </div>
+                      <div>
+                        <span class="text-secondary small fw-bold text-uppercase" data-i18n="developedBy">Developed by Alexsander</span>
+                        <h2 class="h4 mb-0 fw-bold" data-i18n="appTitle">NOC IP TOOL</h2>
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle mt-1" data-i18n="version">Version 4.0.0</span>
+                      </div>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                      <button class="btn btn-primary d-inline-flex align-items-center gap-2 px-3 py-2" id="startAutoButton" type="button">
+                        <i class="bi bi-magic"></i> <span data-i18n="capabilities">Capacidades</span>
+                      </button>
+                      <button class="btn btn-outline-danger d-inline-flex align-items-center gap-2 px-3 py-2" id="startMassivasButton" type="button">
+                        <i class="bi bi-layers"></i> <span data-i18n="massivas">MASSIVAS</span>
+                      </button>
+                      <button class="btn btn-outline-secondary d-inline-flex align-items-center gap-2 px-3 py-2" id="parametersButton" type="button">
+                        <i class="bi bi-sliders"></i> <span data-i18n="parameters">Parâmetros</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Quick Action Cards Grid -->
+              <div class="col-md-4">
+                <div class="card card-noc card-noc-hover h-100 p-3 border-start border-primary border-3" role="button" onclick="document.getElementById('startAutoButton').click()">
+                  <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                      <span class="badge bg-primary-subtle text-primary fs-6 p-2 rounded-3"><i class="bi bi-magic"></i></span>
+                      <span class="badge bg-secondary-subtle text-secondary">5 passos</span>
+                    </div>
+                    <h5 class="card-title fw-bold" data-i18n="capabilities">Capacidades</h5>
+                    <p class="card-text text-secondary small">Fluxo guiado completo com abertura, Bdesk, reconhecimento, acionamento por e-mail e encerramento de tickets.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-md-4">
+                <div class="card card-noc card-noc-hover h-100 p-3 border-start border-danger border-3" role="button" onclick="document.getElementById('startMassivasButton').click()">
+                  <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                      <span class="badge bg-danger-subtle text-danger fs-6 p-2 rounded-3"><i class="bi bi-layers"></i></span>
+                      <span class="badge bg-danger-subtle text-danger">Backbone Live</span>
+                    </div>
+                    <h5 class="card-title fw-bold" data-i18n="massivas">MASSIVAS</h5>
+                    <p class="card-text text-secondary small">Análise avançada de múltiplos enlaces caídos, topologia de rede Backbone com nós em grafo 3D e atualizações com parceiros.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-md-4">
+                <div class="card card-noc card-noc-hover h-100 p-3 border-start border-info border-3" role="button" onclick="document.getElementById('sidebarNavManual').click()">
+                  <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                      <span class="badge bg-info-subtle text-info fs-6 p-2 rounded-3"><i class="bi bi-sliders"></i></span>
+                      <span class="badge bg-secondary-subtle text-secondary">Avançado</span>
+                    </div>
+                    <h5 class="card-title fw-bold" data-i18n="manualEdit">Edição Manual</h5>
+                    <p class="card-text text-secondary small">Workspace detalhado para preenchimento de parâmetros pontuais, cópia rápida de modelos operacionais e prévia de textos.</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Changelog & Roadmap -->
+              <div class="col-12">
+                <div class="card card-noc p-4">
+                  <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                    <i class="bi bi-journal-text text-primary"></i> <span data-i18n="changelog">Changelog & Roadmap</span>
+                  </h5>
+                  <p class="text-secondary small" data-i18n="changelogIntro">Ferramenta IP para capacidades e massivas com análise de alarmes com fluxo guiado.</p>
+                  
+                  <div class="row g-3 mt-1">
+                    <div class="col-md-6">
+                      <h6 class="fw-bold text-success small text-uppercase">Recursos da Versão 4.0</h6>
+                      <ul class="list-unstyled text-secondary small mb-0 d-flex flex-column gap-2">
+                        <li class="d-flex align-items-start gap-2"><i class="bi bi-check-circle-fill text-success mt-0.5"></i> <span data-i18n="changelogItem1">Fluxo Capacidades com abertura, Bdesk, reconhecimento, e-mail e finalização.</span></li>
+                        <li class="d-flex align-items-start gap-2"><i class="bi bi-check-circle-fill text-success mt-0.5"></i> <span data-i18n="changelogItem2">Fluxo Massivas com análise de alarmes, reconhecimento e atualização direta.</span></li>
+                        <li class="d-flex align-items-start gap-2"><i class="bi bi-check-circle-fill text-success mt-0.5"></i> <span data-i18n="changelogItem3">Topologia de rede Backbone com nós em 3D e resolução de cidade/POP.</span></li>
+                        <li class="d-flex align-items-start gap-2"><i class="bi bi-check-circle-fill text-success mt-0.5"></i> <span>Nova arquitetura com Bootstrap 5.3.3 e Sidebar recolhível (mini-rail e offcanvas).</span></li>
+                        <li class="d-flex align-items-start gap-2"><i class="bi bi-check-circle-fill text-success mt-0.5"></i> <span data-i18n="changelogItem6">Atualizador com limpeza de cache e temas claro/escuro refinados.</span></li>
+                      </ul>
+                    </div>
+                    <div class="col-md-6">
+                      <h6 class="fw-bold text-info small text-uppercase" data-i18n="futureFeatures">Futuras funcionalidades</h6>
+                      <ul class="list-unstyled text-secondary small mb-0 d-flex flex-column gap-2">
+                        <li class="d-flex align-items-start gap-2"><i class="bi bi-clock-history text-info mt-0.5"></i> <span data-i18n="futureFeature1">Topologia dinâmica com aprendizado automático e adaptativa</span></li>
+                        <li class="d-flex align-items-start gap-2"><i class="bi bi-clock-history text-info mt-0.5"></i> <span>Métricas de latência integradas em tempo real com parceiras</span></li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ================================================================
+               VIEW 2: FLUXO CAPACIDADES (AUTO FLOW)
+               ================================================================ -->
+          <section class="app-view-container animate__animated animate__fadeIn" id="autoFlow" aria-label="Fluxo automático NOC">
+            <!-- Header bar for Auto Flow -->
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
               <div>
-                <p class="eyebrow" data-i18n="developedBy">Developed by Alexsander</p>
-                <p class="eyebrow" data-i18n="version">Version 3.7.2</p>
-                <h1 data-i18n="appTitle">NOC IP TOOL</h1>
+                <h2 class="h4 fw-bold mb-1 d-flex align-items-center gap-2">
+                  <i class="bi bi-magic text-primary"></i> <span data-i18n="autoFlow">Fluxo automático</span> - <span data-i18n="capabilities">Capacidades</span>
+                </h2>
+                <p class="text-secondary small mb-0" id="autoStatus" role="status" aria-live="polite">Passo 1 de 5</p>
+              </div>
+              <div class="d-flex gap-2">
+                <button class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" id="autoHomeButton" type="button">
+                  <i class="bi bi-house"></i> <span data-i18n="home">Início</span>
+                </button>
+                <button class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" id="autoManualButton" type="button">
+                  <i class="bi bi-sliders"></i> <span data-i18n="manualEdit">Edição manual</span>
+                </button>
               </div>
             </div>
-          <div></div>
-            <h7 data-i18n="changelog">Changelog</h7>
-            <p data-i18n="changelogIntro">Ferramenta IP para capacidades e massivas com análise de alarmes com fluxo guiado.</p>
-            <ol>
-              <li data-i18n="changelogItem1">Fluxo Capacidades com abertura, Bdesk, reconhecimento, e-mail e finalização.</li>
-              <li data-i18n="changelogItem2">Fluxo Massivas com análise de alarmes, reconhecimento e atualização direta.</li>
-              <li data-i18n="changelogItem3">Topologia de rede Backbone com nós em 3D e resolução de cidade/POP.</li>
-              <li data-i18n="changelogItem4">Extração do host afetado diretamente da descrição do enlace.</li>
-              <li data-i18n="changelogItem5">Animações de carregamento anti-flicker e tela de diagnóstico de erros.</li>
-              <li data-i18n="changelogItem6">Atualizador com limpeza de cache e temas claro/escuro refinados.</li>
-            </ol>
-            <p data-i18n="futureFeatures">Futuras funcionalidades</p>
-            <ol>
-              <li data-i18n="futureFeature1">Topologia dinâmica com aprendizado automático e adaptativa</li>
-            </ol>
-          </div>
-        </div>
-        <div class="launch-actions">
-          <button class="primary-button launch-action" id="startAutoButton" type="button"><i data-lucide="wand-sparkles"></i> <span data-i18n="capabilities">Capacidades</span></button>
-          <button class="ghost-button launch-action" id="startMassivasButton" type="button"><i data-lucide="layers-3"></i> <span data-i18n="massivas">MASSIVAS</span></button>
-          <button class="ghost-button launch-action" id="parametersButton" type="button"><i data-lucide="sliders-horizontal"></i> <span data-i18n="parameters">Parâmetros</span></button>
-        </div>
-      </div>
-    </section>
-    <main class="app-shell">
-      <section class="auto-flow animate__animated animate__fadeIn" id="autoFlow" aria-label="Fluxo automático NOC" hidden>
-        <nav class="navbar auto-navbar" aria-label="Navegação do fluxo automático">
-          <div class="brand">
-            <span class="brand-mark" aria-hidden="true"><i data-lucide="radio-tower"></i></span>
-            <div>
-              <p class="eyebrow" data-i18n="autoFlow">Fluxo automático</p>
-              <h1 data-i18n="appTitle">NOC IP TOOL</h1>
-            </div>
-          </div>
-          <p class="status" id="autoStatus" role="status" aria-live="polite">Passo 1 de 5</p>
-          <div class="navbar-actions">
-            <button class="ghost-button" id="autoHomeButton" type="button"><i data-lucide="house"></i> <span data-i18n="home">Início</span></button>
-            <button class="ghost-button" id="autoManualButton" type="button"><i data-lucide="layout-dashboard"></i> <span data-i18n="manualEdit">Edição manual</span></button>
-          </div>
-        </nav>
 
-        <div class="auto-layout">
-          <section class="auto-steps" aria-label="Passo a passo automático">
-            <div class="auto-progress" aria-label="Progresso do fluxo automático">
-              <div class="progress-track"><span id="autoProgressFill"></span></div>
-              <div class="step-nav" id="autoStepNav">
-                <button type="button" class="step-nav-item is-active" data-step-nav="1">1 <span data-i18n="alarms">Alarmes</span></button>
-                <button type="button" class="step-nav-item" data-step-nav="2">2 <span data-i18n="bdeskSubject">Bdesk</span></button>
-                <button type="button" class="step-nav-item" data-step-nav="3">3 <span data-i18n="internalTicket">Chamado</span></button>
-                <button type="button" class="step-nav-item" data-step-nav="4">4 <span data-i18n="email">E-mail</span></button>
-                <button type="button" class="step-nav-item" data-step-nav="5">5 <span data-i18n="finalization">Finalizar</span></button>
-              </div>
+            <!-- Wizard Progress Stepper -->
+            <div class="wizard-steps-nav" id="autoStepNav" aria-label="Progresso do fluxo automático">
+              <button type="button" class="wizard-step-item is-active" data-step-nav="1">
+                <span class="wizard-step-number">1</span> <span data-i18n="alarms">Alarmes</span>
+              </button>
+              <button type="button" class="wizard-step-item" data-step-nav="2">
+                <span class="wizard-step-number">2</span> <span data-i18n="bdeskSubject">Bdesk</span>
+              </button>
+              <button type="button" class="wizard-step-item" data-step-nav="3">
+                <span class="wizard-step-number">3</span> <span data-i18n="internalTicket">Chamado</span>
+              </button>
+              <button type="button" class="wizard-step-item" data-step-nav="4">
+                <span class="wizard-step-number">4</span> <span data-i18n="email">E-mail</span>
+              </button>
+              <button type="button" class="wizard-step-item" data-step-nav="5">
+                <span class="wizard-step-number">5</span> <span data-i18n="finalization">Finalizar</span>
+              </button>
             </div>
+            <div class="progress mb-4" style="height: 4px;">
+              <div class="progress-bar bg-primary" id="autoProgressFill" role="progressbar" style="width: 20%;" aria-valuenow="20" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+
+            <!-- Step 1: Alarmes -->
             <article class="auto-step is-active" data-auto-step="1">
-              <div class="step-heading">
-                <span class="step-count">1</span>
-                <div>
-                  <p class="eyebrow" data-i18n="alarms">Alarmes</p>
-                  <h2><i data-lucide="radio-receiver"></i> <span data-i18n="pasteAlarms">Colar alarmes e confirmar dados</span></h2>
+              <div class="card card-noc p-4 mb-3">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                  <div class="badge bg-primary-subtle text-primary p-2 fs-5 rounded-3"><i class="bi bi-broadcast"></i></div>
+                  <div>
+                    <span class="text-secondary small fw-bold text-uppercase" data-i18n="alarms">Alarmes</span>
+                    <h5 class="fw-bold mb-0" data-i18n="pasteAlarms">Colar alarmes e confirmar dados</h5>
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label fw-bold small" for="autoEvents" data-i18n="alarmsEventEvidence">Alarmes, evento ou evidência</label>
+                  <textarea class="form-control font-monospace" id="autoEvents" rows="9" data-i18n-placeholder="alarmsPlaceholder" placeholder="Cole os alarmes aqui..."></textarea>
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label fw-bold small" for="autoCarrier" data-i18n="partner">Parceiro</label>
+                    <input list="partnersList" class="form-control" id="autoCarrier" type="text" value="CLARO" autocomplete="off">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label fw-bold small" for="autoFailureType" data-i18n="failureType">Tipo de falha</label>
+                    <input list="failureTypesList" class="form-control" id="autoFailureType" type="text" value="INDISPONIBILIDADE" autocomplete="off">
+                  </div>
                 </div>
               </div>
-              <label class="field wide">
-                <span data-i18n="alarmsEventEvidence">Alarmes, evento ou evidência</span>
-                <textarea id="autoEvents" rows="10" data-i18n-placeholder="alarmsPlaceholder" placeholder="Cole os alarmes aqui"></textarea>
-              </label>
-              <div class="field-row two">
-                <label class="field">
-                  <span data-i18n="partner">Parceiro</span>
-                  <input list="partnersList" id="autoCarrier" type="text" value="CLARO" autocomplete="off">
-                </label>
-                <label class="field">
-                  <span data-i18n="failureType">Tipo de falha</span>
-                  <input list="failureTypesList" id="autoFailureType" type="text" value="INDISPONIBILIDADE" autocomplete="off">
-                </label>
-              </div>
-              <div class="auto-actions">
-                <button class="primary-button" id="autoConfirmStep1" type="button"><i data-lucide="check"></i> <span data-i18n="confirmData">Confirmar dados</span></button>
+              <div class="d-flex justify-content-end">
+                <button class="btn btn-primary d-inline-flex align-items-center gap-2 px-4 py-2" id="autoConfirmStep1" type="button">
+                  <i class="bi bi-check2-circle"></i> <span data-i18n="confirmData">Confirmar dados</span>
+                </button>
               </div>
             </article>
 
+            <!-- Step 2: Bdesk e Abertura -->
             <article class="auto-step" data-auto-step="2">
-              <div class="step-heading">
-                <span class="step-count">2</span>
-                <div>
-                  <p class="eyebrow" data-i18n="bdeskOpening">Bdesk e abertura</p>
-                  <h2><i data-lucide="clipboard-pen-line"></i> <span data-i18n="generateInitialTexts">Gerar textos iniciais</span></h2>
+              <div class="card card-noc p-4 mb-3">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                  <div class="badge bg-primary-subtle text-primary p-2 fs-5 rounded-3"><i class="bi bi-card-checklist"></i></div>
+                  <div>
+                    <span class="text-secondary small fw-bold text-uppercase" data-i18n="bdeskOpening">Bdesk e abertura</span>
+                    <h5 class="fw-bold mb-0" data-i18n="generateInitialTexts">Gerar textos iniciais</h5>
+                  </div>
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <button class="btn btn-outline-primary btn-copy-action copy-action auto-copy-action" type="button" data-copy-kind="description" data-preview-kind="description">
+                      <i class="bi bi-file-earmark-text fs-5"></i>
+                      <div class="text-start">
+                        <div class="fw-bold" data-i18n="bdeskSubject">Assunto Bdesk</div>
+                        <small class="text-secondary">Copiar descrição para o ticket Bdesk</small>
+                      </div>
+                    </button>
+                  </div>
+                  <div class="col-md-6">
+                    <button class="btn btn-outline-primary btn-copy-action copy-action auto-copy-action" type="button" data-copy-kind="opening" data-preview-kind="opening">
+                      <i class="bi bi-clipboard-check fs-5"></i>
+                      <div class="text-start">
+                        <div class="fw-bold" data-i18n="openingText">Texto de abertura</div>
+                        <small class="text-secondary">Copiar carimbo de abertura NOC</small>
+                      </div>
+                    </button>
+                  </div>
                 </div>
               </div>
-              <div class="auto-button-grid">
-                <button class="copy-action auto-copy-action" type="button" data-copy-kind="description" data-preview-kind="description"><i data-lucide="file-text"></i> <span data-i18n="bdeskSubject">Assunto Bdesk</span></button>
-                <button class="copy-action auto-copy-action" type="button" data-copy-kind="opening" data-preview-kind="opening"><i data-lucide="clipboard-list"></i> <span data-i18n="openingText">Texto de abertura</span></button>
-              </div>
-              <div class="auto-actions">
-                <button class="ghost-button auto-prev" type="button"><i data-lucide="arrow-left"></i> <span data-i18n="back">Voltar</span></button>
-                <button class="primary-button auto-next" type="button"><i data-lucide="arrow-right"></i> <span data-i18n="nextStep">Próximo passo</span></button>
+              <div class="d-flex justify-content-between">
+                <button class="btn btn-outline-secondary auto-prev" type="button">
+                  <i class="bi bi-arrow-left"></i> <span data-i18n="back">Voltar</span>
+                </button>
+                <button class="btn btn-primary auto-next" type="button">
+                  <span data-i18n="nextStep">Próximo passo</span> <i class="bi bi-arrow-right"></i>
+                </button>
               </div>
             </article>
 
+            <!-- Step 3: Chamado Interno -->
             <article class="auto-step" data-auto-step="3">
-              <div class="step-heading">
-                <span class="step-count">3</span>
-                <div>
-                  <p class="eyebrow" data-i18n="internalTicket">Chamado interno</p>
-                  <h2><i data-lucide="badge-check"></i> <span data-i18n="pasteTicket">Colar chamado e reconhecer alarmes</span></h2>
+              <div class="card card-noc p-4 mb-3">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                  <div class="badge bg-primary-subtle text-primary p-2 fs-5 rounded-3"><i class="bi bi-ticket-detailed"></i></div>
+                  <div>
+                    <span class="text-secondary small fw-bold text-uppercase" data-i18n="internalTicket">Chamado interno</span>
+                    <h5 class="fw-bold mb-0" data-i18n="pasteTicket">Colar chamado e reconhecer alarmes</h5>
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label fw-bold small" for="autoInternalTicket" data-i18n="internalTicket">Chamado interno</label>
+                  <input class="form-control" id="autoInternalTicket" type="text" data-i18n-placeholder="internalTicketPlaceholder" placeholder="Ex: 588604">
+                </div>
+                <div class="mt-3 is-conditional" id="autoRecognizeActions" hidden>
+                  <button class="btn btn-outline-success btn-copy-action copy-action auto-copy-action" type="button" data-copy-kind="recognize" data-preview-kind="recognize">
+                    <i class="bi bi-patch-check fs-5"></i>
+                    <div class="text-start">
+                      <div class="fw-bold" data-i18n="recognizeAlarms">Reconhecer alarmes</div>
+                      <small class="text-secondary">Copiar texto com chamado vinculado</small>
+                    </div>
+                  </button>
                 </div>
               </div>
-              <label class="field">
-                <span data-i18n="internalTicket">Chamado interno</span>
-                <input id="autoInternalTicket" type="text" data-i18n-placeholder="internalTicketPlaceholder" placeholder="588604">
-              </label>
-              <div class="auto-button-grid is-conditional" id="autoRecognizeActions" hidden>
-                <button class="copy-action auto-copy-action" type="button" data-copy-kind="recognize" data-preview-kind="recognize"><i data-lucide="badge-check"></i> <span data-i18n="recognizeAlarms">Reconhecer alarmes</span></button>
-              </div>
-              <div class="auto-actions">
-                <button class="ghost-button auto-prev" type="button"><i data-lucide="arrow-left"></i> <span data-i18n="back">Voltar</span></button>
-                <button class="primary-button auto-next" type="button"><i data-lucide="arrow-right"></i> <span data-i18n="nextStep">Próximo passo</span></button>
+              <div class="d-flex justify-content-between">
+                <button class="btn btn-outline-secondary auto-prev" type="button">
+                  <i class="bi bi-arrow-left"></i> <span data-i18n="back">Voltar</span>
+                </button>
+                <button class="btn btn-primary auto-next" type="button">
+                  <span data-i18n="nextStep">Próximo passo</span> <i class="bi bi-arrow-right"></i>
+                </button>
               </div>
             </article>
 
+            <!-- Step 4: E-mail -->
             <article class="auto-step" data-auto-step="4">
-              <div class="step-heading">
-                <span class="step-count">4</span>
-                <div>
-                  <p class="eyebrow" data-i18n="email">E-mail</p>
-                  <h2><i data-lucide="mail-check"></i> <span data-i18n="generateEmail">Gerar acionamento por e-mail</span></h2>
+              <div class="card card-noc p-4 mb-3">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                  <div class="badge bg-primary-subtle text-primary p-2 fs-5 rounded-3"><i class="bi bi-envelope-paper"></i></div>
+                  <div>
+                    <span class="text-secondary small fw-bold text-uppercase" data-i18n="email">E-mail</span>
+                    <h5 class="fw-bold mb-0" data-i18n="generateEmail">Gerar acionamento por e-mail</h5>
+                  </div>
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <button class="btn btn-outline-primary btn-copy-action copy-action auto-copy-action" type="button" data-copy-kind="subject" data-preview-kind="subject">
+                      <i class="bi bi-fonts fs-5"></i>
+                      <div class="text-start">
+                        <div class="fw-bold" data-i18n="subject">Assunto</div>
+                        <small class="text-secondary">Copiar assunto do e-mail</small>
+                      </div>
+                    </button>
+                  </div>
+                  <div class="col-md-4">
+                    <button class="btn btn-outline-primary btn-copy-action copy-action auto-copy-action" type="button" data-copy-kind="email" data-preview-kind="email">
+                      <i class="bi bi-envelope fs-5"></i>
+                      <div class="text-start">
+                        <div class="fw-bold" data-i18n="email">E-mail</div>
+                        <small class="text-secondary">Copiar corpo completo</small>
+                      </div>
+                    </button>
+                  </div>
+                  <div class="col-md-4">
+                    <button class="btn btn-outline-primary btn-copy-action copy-action auto-copy-action" type="button" data-copy-kind="recipients" data-preview-kind="recipients">
+                      <i class="bi bi-people fs-5"></i>
+                      <div class="text-start">
+                        <div class="fw-bold" data-i18n="recipients">Destinatários</div>
+                        <small class="text-secondary">Copiar lista de contatos</small>
+                      </div>
+                    </button>
+                  </div>
                 </div>
               </div>
-              <div class="auto-button-grid">
-                <button class="copy-action auto-copy-action" type="button" data-copy-kind="subject" data-preview-kind="subject"><i data-lucide="text-cursor-input"></i> <span data-i18n="subject">Assunto</span></button>
-                <button class="copy-action auto-copy-action" type="button" data-copy-kind="email" data-preview-kind="email"><i data-lucide="mail"></i> <span data-i18n="email">E-mail</span></button>
-                <button class="copy-action auto-copy-action" type="button" data-copy-kind="recipients" data-preview-kind="recipients"><i data-lucide="users"></i> <span data-i18n="recipients">Destinatários</span></button>
-              </div>
-              <div class="auto-actions">
-                <button class="ghost-button auto-prev" type="button"><i data-lucide="arrow-left"></i> <span data-i18n="back">Voltar</span></button>
-                <button class="primary-button auto-next" type="button"><i data-lucide="arrow-right"></i> <span data-i18n="nextStep">Próximo passo</span></button>
+              <div class="d-flex justify-content-between">
+                <button class="btn btn-outline-secondary auto-prev" type="button">
+                  <i class="bi bi-arrow-left"></i> <span data-i18n="back">Voltar</span>
+                </button>
+                <button class="btn btn-primary auto-next" type="button">
+                  <span data-i18n="nextStep">Próximo passo</span> <i class="bi bi-arrow-right"></i>
+                </button>
               </div>
             </article>
 
+            <!-- Step 5: Finalização -->
             <article class="auto-step" data-auto-step="5">
-              <div class="step-heading">
-                <span class="step-count">5</span>
-                <div>
-                  <p class="eyebrow" data-i18n="finalization">Finalização</p>
-                  <h2><i data-lucide="circle-check-big"></i> <span data-i18n="concludeService">Concluir atendimento</span></h2>
+              <div class="card card-noc p-4 mb-3 text-center">
+                <div class="mb-3">
+                  <span class="badge bg-success-subtle text-success p-3 rounded-circle fs-3"><i class="bi bi-check-circle"></i></span>
                 </div>
+                <h5 class="fw-bold" data-i18n="concludeService">Concluir atendimento</h5>
+                <p class="text-secondary small">Todos os dados foram processados e os textos foram gerados com sucesso.</p>
               </div>
-              <div class="auto-actions">
-                <button class="ghost-button auto-prev" type="button"><i data-lucide="arrow-left"></i> <span data-i18n="back">Voltar</span></button>
-                <button class="primary-button" id="autoFinishButton" type="button"><i data-lucide="rotate-ccw"></i> <span data-i18n="finishAndReturn">Finalizar e voltar ao início</span></button>
+              <div class="d-flex justify-content-between">
+                <button class="btn btn-outline-secondary auto-prev" type="button">
+                  <i class="bi bi-arrow-left"></i> <span data-i18n="back">Voltar</span>
+                </button>
+                <button class="btn btn-success d-inline-flex align-items-center gap-2 px-4 py-2" id="autoFinishButton" type="button">
+                  <i class="bi bi-arrow-repeat"></i> <span data-i18n="finishAndReturn">Finalizar e voltar ao início</span>
+                </button>
               </div>
             </article>
           </section>
-        </div>
-      </section>
 
-      <section class="massivas-flow animate__animated animate__fadeIn" id="massivasFlow" aria-label="Fluxo massivas" hidden>
-        <nav class="navbar massivas-navbar" aria-label="Navegação do fluxo massivas">
-          <div class="brand">
-            <span class="brand-mark" aria-hidden="true"><i data-lucide="layers-3"></i></span>
-            <div>
-              <p class="eyebrow" data-i18n="massivasFlow">Fluxo massivas</p>
-              <h1 data-i18n="appTitle">NOC IP TOOL</h1>
-            </div>
-          </div>
-          <p class="status" id="massivasStatus" role="status" aria-live="polite">Passo 1 de 3</p>
-          <button class="ghost-button" id="massivasHomeButton" type="button"><i data-lucide="house"></i> <span data-i18n="home">Início</span></button>
-        </nav>
-
-        <div class="massivas-layout">
-          <section class="massivas-steps" aria-label="Passo a passo massivas">
-            <div class="massivas-progress" aria-label="Progresso do fluxo massivas">
-              <div class="progress-track"><span id="massivasProgressFill"></span></div>
-              <div class="massivas-step-nav">
-                <button type="button" class="massivas-step-nav-item is-active" data-massivas-step-nav="1">1 <span data-i18n="alarms">Alarmes</span></button>
-                <button type="button" class="massivas-step-nav-item" data-massivas-step-nav="2">2 <span data-i18n="internalTicket">Chamado</span></button>
-                <button type="button" class="massivas-step-nav-item" data-massivas-step-nav="3">3 <span data-i18n="finalization">Finalizar</span></button>
+          <!-- ================================================================
+               VIEW 3: FLUXO MASSIVAS
+               ================================================================ -->
+          <section class="app-view-container animate__animated animate__fadeIn" id="massivasFlow" aria-label="Fluxo massivas">
+            <!-- Header bar for Massivas Flow -->
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+              <div>
+                <h2 class="h4 fw-bold mb-1 d-flex align-items-center gap-2">
+                  <i class="bi bi-layers text-danger"></i> <span data-i18n="massivasFlow">Fluxo massivas</span>
+                </h2>
+                <p class="text-secondary small mb-0" id="massivasStatus" role="status" aria-live="polite">Passo 1 de 3</p>
+              </div>
+              <div class="d-flex gap-2">
+                <button class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" id="massivasHomeButton" type="button">
+                  <i class="bi bi-house"></i> <span data-i18n="home">Início</span>
+                </button>
               </div>
             </div>
 
+            <!-- Wizard Progress Stepper -->
+            <div class="wizard-steps-nav">
+              <button type="button" class="wizard-step-item is-active" data-massivas-step-nav="1">
+                <span class="wizard-step-number">1</span> <span data-i18n="alarms">Alarmes</span>
+              </button>
+              <button type="button" class="wizard-step-item" data-massivas-step-nav="2">
+                <span class="wizard-step-number">2</span> <span data-i18n="internalTicket">Chamado</span>
+              </button>
+              <button type="button" class="wizard-step-item" data-massivas-step-nav="3">
+                <span class="wizard-step-number">3</span> <span data-i18n="finalization">Finalizar</span>
+              </button>
+            </div>
+            <div class="progress mb-4" style="height: 4px;">
+              <div class="progress-bar bg-danger" id="massivasProgressFill" role="progressbar" style="width: 33%;" aria-valuenow="33" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+
+            <!-- Massivas Step 1: Alarmes e Topologia -->
             <article class="massivas-step is-active" data-massivas-step="1">
-              <div class="step-heading">
-                <span class="step-count">1</span>
+              <div class="card card-noc p-4 mb-3">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                  <div class="badge bg-danger-subtle text-danger p-2 fs-5 rounded-3"><i class="bi bi-radioactive"></i></div>
+                  <div>
+                    <span class="text-secondary small fw-bold text-uppercase" data-i18n="bdeskOpening">Alarmes e abertura</span>
+                    <h5 class="fw-bold mb-0" data-i18n="pasteAlarmsOrganize">Colar alarmes e organizar hosts</h5>
+                  </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                  <div class="col-lg-7">
+                    <label class="form-label fw-bold small" for="massivasDebugAlarms" data-i18n="massivasAlarms">Alarmes da massiva</label>
+                    <textarea class="form-control font-monospace" id="massivasDebugAlarms" rows="8" data-i18n-placeholder="massivasAlarmsPlaceholder" placeholder="Cole os alarmes aqui para organizar por host"></textarea>
+                  </div>
+                  <div class="col-lg-5">
+                    <label class="form-label fw-bold small" for="massivasHosts" data-i18n="separatedHosts">Hosts separados automaticamente</label>
+                    <textarea class="form-control font-monospace" id="massivasHosts" rows="8" data-i18n-placeholder="hostsPlaceholder" placeholder="Os hosts identificados aparecem aqui" readonly></textarea>
+                  </div>
+                </div>
+
+                <!-- Backbone Topology Panel -->
+                <div class="massivas-topology-panel">
+                  <div class="massivas-topology-heading">
+                    <div class="d-flex align-items-center gap-2">
+                      <span class="status-indicator-dot"></span>
+                      <strong data-i18n="topology">Topologia Backbone</strong>
+                      <span class="badge bg-primary-subtle text-primary">NOC LIVE</span>
+                    </div>
+                    <div class="d-flex flex-wrap align-items-center gap-1 small">
+                      <span class="badge bg-secondary-subtle text-secondary">PE Router</span>
+                      <span class="badge bg-secondary-subtle text-secondary">Core / CO</span>
+                      <span class="badge bg-secondary-subtle text-secondary">Switch</span>
+                      <span class="badge bg-secondary-subtle text-secondary">DWDM</span>
+                      <span class="badge bg-danger-subtle text-danger">Alarme</span>
+                    </div>
+                    <div class="btn-group btn-group-sm">
+                      <button type="button" class="btn btn-outline-secondary" onclick="topoZoomIn()" title="Zoom +">+</button>
+                      <button type="button" class="btn btn-outline-secondary" onclick="topoZoomOut()" title="Zoom -">−</button>
+                      <button type="button" class="btn btn-outline-secondary" onclick="topoZoomFit()" title="Ajustar">⊡</button>
+                      <button type="button" class="btn btn-outline-secondary" onclick="topoCenter()" title="Centralizar">⊕</button>
+                      <button type="button" class="btn btn-outline-secondary" onclick="topoRelayout()" title="Reorganizar Layout">🔄</button>
+                      <a href="topo/topo.html" target="_blank" class="btn btn-outline-primary" title="Abrir em página separada">🧪 Tela Cheia</a>
+                    </div>
+                  </div>
+                  <div id="massivasTopologyGraph" role="img" aria-label="Topologia dinâmica da massiva"></div>
+                  <canvas id="massivasTopologyCanvas" width="960" height="300" aria-hidden="true" hidden></canvas>
+                  <div id="massivasTopologyHud" class="massivas-topology-hud" hidden></div>
+                </div>
+
+                <!-- Opening Output -->
+                <div class="mb-3">
+                  <label class="form-label fw-bold small" for="massivasOpeningOutput" data-i18n="openingTextMassiva">Texto de abertura da massiva</label>
+                  <textarea class="form-control font-monospace" id="massivasOpeningOutput" rows="8" readonly data-i18n-placeholder="openingPlaceholder" placeholder="A abertura será gerada a partir dos alarmes colados"></textarea>
+                </div>
                 <div>
-                  <p class="eyebrow" data-i18n="bdeskOpening">Alarmes e abertura</p>
-                  <h2><i data-lucide="radio-receiver"></i> <span data-i18n="pasteAlarmsOrganize">Colar alarmes e organizar hosts</span></h2>
+                  <button class="btn btn-outline-danger btn-copy-action copy-action" type="button" data-copy-kind="massivas-opening" data-preview-kind="massivas-opening">
+                    <i class="bi bi-copy fs-5"></i>
+                    <div class="text-start">
+                      <div class="fw-bold" data-i18n="copyOpeningTopology">Copiar abertura e topologia</div>
+                      <small class="text-secondary">Copiar relatório completo gerado</small>
+                    </div>
+                  </button>
                 </div>
               </div>
-              <label class="field wide">
-                <span data-i18n="massivasAlarms">Alarmes da massiva</span>
-                <textarea id="massivasDebugAlarms" rows="8" data-i18n-placeholder="massivasAlarmsPlaceholder" placeholder="Cole os alarmes aqui para organizar por host"></textarea>
-              </label>
-              <label class="field wide">
-                <span data-i18n="separatedHosts">Hosts separados automaticamente</span>
-                <textarea id="massivasHosts" rows="5" data-i18n-placeholder="hostsPlaceholder" placeholder="Os hosts identificados aparecem aqui" readonly></textarea>
-              </label>
-              <div class="massivas-topology-panel">
-                <div class="massivas-topology-heading">
-                  <div class="massivas-topology-title">
-                    <span class="pulse-dot"></span>
-                    <span data-i18n="topology">Topologia Backbone</span>
-                    <span class="topology-live-badge">NOC LIVE</span>
-                  </div>
-                  <div class="topology-legend">
-                    <span class="topo-tag pe">🔀 PE Router</span>
-                    <span class="topo-tag core">🌐 Core / CO</span>
-                    <span class="topo-tag sw">🔌 Switch</span>
-                    <span class="topo-tag dwdm">📡 DWDM / TX</span>
-                    <span class="topo-tag trunk">🔗 Trunk</span>
-                    <span class="topo-tag alarm">🚨 Alarme</span>
-                  </div>
-                  <div class="topology-controls">
-                    <button type="button" class="topo-btn-icon" onclick="topoZoomIn()" title="Zoom +">+</button>
-                    <button type="button" class="topo-btn-icon" onclick="topoZoomOut()" title="Zoom -">−</button>
-                    <button type="button" class="topo-btn-icon" onclick="topoZoomFit()" title="Ajustar">⊡</button>
-                    <button type="button" class="topo-btn-icon" onclick="topoCenter()" title="Centralizar">⊕</button>
-                    <button type="button" class="topo-btn-icon" onclick="topoRelayout()" title="Reorganizar Layout">🔄</button>
-                    <a href="topo/topo.html" target="_blank" class="topo-btn-link" title="Abrir em página separada">🧪 Tela Cheia</a>
-                  </div>
-                </div>
-                <div id="massivasTopologyGraph" role="img" aria-label="Topologia dinâmica da massiva"></div>
-                <canvas id="massivasTopologyCanvas" width="960" height="300" aria-hidden="true" hidden></canvas>
-                <div id="massivasTopologyHud" class="massivas-topology-hud" hidden></div>
-              </div>
-              <label class="field wide">
-                <span data-i18n="openingTextMassiva">Texto de abertura da massiva</span>
-                <textarea id="massivasOpeningOutput" rows="10" readonly data-i18n-placeholder="openingPlaceholder" placeholder="A abertura sera gerada a partir dos alarmes colados"></textarea>
-              </label>
-              <div class="auto-button-grid is-conditional">
-                <button class="copy-action compact-copy-action" type="button" data-copy-kind="massivas-opening" data-preview-kind="massivas-opening"><i data-lucide="copy"></i> <span data-i18n="copyOpeningTopology">Copiar abertura e topologia</span></button>
-              </div>
-              <div class="massivas-actions">
-                <button class="ghost-button massivas-prev" type="button"><i data-lucide="arrow-left"></i> <span data-i18n="back">Voltar</span></button>
-                <button class="primary-button massivas-next" type="button"><i data-lucide="arrow-right"></i> <span data-i18n="goToTicket">Ir para chamado</span></button>
+              <div class="d-flex justify-content-between">
+                <button class="btn btn-outline-secondary massivas-prev" type="button">
+                  <i class="bi bi-arrow-left"></i> <span data-i18n="back">Voltar</span>
+                </button>
+                <button class="btn btn-danger massivas-next" type="button">
+                  <span data-i18n="goToTicket">Ir para chamado</span> <i class="bi bi-arrow-right"></i>
+                </button>
               </div>
             </article>
 
+            <!-- Massivas Step 2: Chamado e Atualizações -->
             <article class="massivas-step" data-massivas-step="2">
-              <div class="step-heading">
-                <span class="step-count">2</span>
+              <div class="card card-noc p-4 mb-3">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                  <div class="badge bg-danger-subtle text-danger p-2 fs-5 rounded-3"><i class="bi bi-ticket-detailed"></i></div>
+                  <div>
+                    <span class="text-secondary small fw-bold text-uppercase" data-i18n="internalTicket">Chamado</span>
+                    <h5 class="fw-bold mb-0" data-i18n="prepareMassivaTexts">Preparar textos da massiva</h5>
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label fw-bold small" for="massivasBdeskSubject" data-i18n="bdeskSubjectMassiva">Assunto Bdesk da massiva</label>
+                  <textarea class="form-control" id="massivasBdeskSubject" rows="2" data-i18n-placeholder="bdeskSubjectPlaceholder" placeholder="Cole o assunto Bdesk completo para gerar o reconhecimento com Aut Bdesk:#"></textarea>
+                  <button class="btn btn-outline-secondary btn-sm mt-2 copy-action" type="button" data-copy-kind="massivas-recognize" data-preview-kind="massivas-recognize">
+                    <i class="bi bi-patch-check"></i> <span data-i18n="recognizeMassivaAlarms">Reconhecer alarmes da massiva</span>
+                  </button>
+                </div>
+
+                <div class="row g-3 mb-3">
+                  <div class="col-md-6">
+                    <label class="form-label fw-bold small" for="massivasUpdatePhoneGroup" data-i18n="phoneGroup">Telefone/Grupo</label>
+                    <input class="form-control" id="massivasUpdatePhoneGroup" type="text" data-i18n-placeholder="phoneGroupPlaceholder" placeholder="Telefone, grupo ou canal acionado">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label fw-bold small" for="massivasUpdateTxInfraTicket" data-i18n="txInfraTicket">Chamado TX / INFRA</label>
+                    <input class="form-control" id="massivasUpdateTxInfraTicket" type="text" data-i18n-placeholder="txInfraPlaceholder" placeholder="Chamado ou protocolo da área acionada">
+                  </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                  <div class="col-md-4">
+                    <label class="form-label fw-bold small" for="massivasUpdateSpokenWith" data-i18n="spokenWith">Falado com</label>
+                    <input class="form-control" id="massivasUpdateSpokenWith" type="text" data-i18n-placeholder="spokenWithPlaceholder" placeholder="NOC / TX / Parceiro">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label fw-bold small" for="massivasUpdateForecast" data-i18n="forecast">Previsão</label>
+                    <input class="form-control" id="massivasUpdateForecast" type="text" data-i18n-placeholder="forecastPlaceholder" value="Sem previsão">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label fw-bold small" for="massivasUpdateNextAction" data-i18n="nextAction">Próxima ação</label>
+                    <input class="form-control" id="massivasUpdateNextAction" type="text" data-i18n-placeholder="nextActionPlaceholder" placeholder="Aguardar retorno e atualizar chamado">
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label fw-bold small" for="massivasUpdateSpokenText" data-i18n="whatWasSpoken">O que foi falado</label>
+                  <textarea class="form-control" id="massivasUpdateSpokenText" rows="3" data-i18n-placeholder="whatWasSpokenPlaceholder" placeholder="Descreva o retorno, orientação ou evidência informada"></textarea>
+                </div>
+
                 <div>
-                  <p class="eyebrow" data-i18n="internalTicket">Chamado</p>
-                  <h2><i data-lucide="badge-check"></i> <span data-i18n="prepareMassivaTexts">Preparar textos da massiva</span></h2>
+                  <button class="btn btn-outline-primary btn-copy-action copy-action" type="button" data-copy-kind="massivas-update" data-preview-kind="massivas-update">
+                    <i class="bi bi-clipboard-data fs-5"></i>
+                    <div class="text-start">
+                      <div class="fw-bold" data-i18n="massivaUpdate">Atualização massiva</div>
+                      <small class="text-secondary">Copiar texto padronizado de atualização</small>
+                    </div>
+                  </button>
                 </div>
               </div>
-              <div class="massivas-subject-block">
-                <label class="field">
-                  <span data-i18n="bdeskSubjectMassiva">Assunto Bdesk da massiva</span>
-                  <textarea id="massivasBdeskSubject" rows="2" data-i18n-placeholder="bdeskSubjectPlaceholder" placeholder="Cole o assunto Bdesk completo para gerar o reconhecimento com Aut Bdesk:#"></textarea>
-                </label>
-                <button class="copy-action compact-copy-action" type="button" data-copy-kind="massivas-recognize" data-preview-kind="massivas-recognize"><i data-lucide="badge-check"></i> <span data-i18n="recognizeMassivaAlarms">Reconhecer alarmes da massiva</span></button>
-              </div>
-              <div class="field-row two">
-                <label class="field">
-                  <span data-i18n="phoneGroup">Telefone/Grupo</span>
-                  <input id="massivasUpdatePhoneGroup" type="text" data-i18n-placeholder="phoneGroupPlaceholder" placeholder="Telefone, grupo ou canal acionado">
-                </label>
-                <label class="field">
-                  <span data-i18n="txInfraTicket">Chamado TX / INFRA</span>
-                  <input id="massivasUpdateTxInfraTicket" type="text" data-i18n-placeholder="txInfraPlaceholder" placeholder="Chamado ou protocolo da área acionada">
-                </label>
-              </div>
-              <div class="field-row three">
-                <label class="field">
-                  <span data-i18n="spokenWith">Falado com</span>
-                  <input id="massivasUpdateSpokenWith" type="text" data-i18n-placeholder="spokenWithPlaceholder" placeholder="NOC / TX / Parceiro">
-                </label>
-                <label class="field">
-                  <span data-i18n="forecast">Previsão</span>
-                  <input id="massivasUpdateForecast" type="text" data-i18n-placeholder="forecastPlaceholder" value="Sem previsão">
-                </label>
-                <label class="field">
-                  <span data-i18n="nextAction">Próxima ação</span>
-                  <input id="massivasUpdateNextAction" type="text" data-i18n-placeholder="nextActionPlaceholder" placeholder="Aguardar retorno e atualizar chamado">
-                </label>
-              </div>
-              <label class="field wide">
-                <span data-i18n="whatWasSpoken">O que foi falado</span>
-                <textarea id="massivasUpdateSpokenText" rows="3" data-i18n-placeholder="whatWasSpokenPlaceholder" placeholder="Descreva o retorno, orientacao ou evidencia informada"></textarea>
-              </label>
-              <div class="auto-button-grid is-conditional">
-                <button class="copy-action compact-copy-action" type="button" data-copy-kind="massivas-update" data-preview-kind="massivas-update"><i data-lucide="clipboard-list"></i> <span data-i18n="massivaUpdate">Atualização massiva</span></button>
-              </div>
-              <div class="massivas-actions">
-                <button class="ghost-button massivas-prev" type="button"><i data-lucide="arrow-left"></i> <span data-i18n="back">Voltar</span></button>
-                <button class="primary-button massivas-next" type="button"><i data-lucide="arrow-right"></i> <span data-i18n="goToFinalization">Ir para finalizacao</span></button>
+
+              <div class="d-flex justify-content-between">
+                <button class="btn btn-outline-secondary massivas-prev" type="button">
+                  <i class="bi bi-arrow-left"></i> <span data-i18n="back">Voltar</span>
+                </button>
+                <button class="btn btn-danger massivas-next" type="button">
+                  <span data-i18n="goToFinalization">Ir para finalização</span> <i class="bi bi-arrow-right"></i>
+                </button>
               </div>
             </article>
 
+            <!-- Hidden Steps 97 & 98 for Alpha/Manual Analysis compatibility -->
             <article class="massivas-step" data-massivas-step="97" hidden>
-              <div class="step-heading">
-                <span class="step-count">3</span>
-                <div>
-                  <p class="eyebrow" data-i18n="alphaTests">ALPHA/TESTES</p>
-                  <h2><i data-lucide="server"></i> <span data-i18n="pasteHostsAlarmsDebug">Colar hosts, alarmes e debug</span></h2>
-                </div>
-              </div>
-              <label class="field wide">
-                <span data-i18n="hostsMassiva">Hosts da massiva</span>
-                <textarea id="massivasHostsAlphaHidden" rows="8" data-i18n-placeholder="hostsPlaceholder" placeholder="Cole um host por linha"></textarea>
-              </label>
-              <label class="field wide">
-                <span data-i18n="alarmsDebugManual">Alarmes / debug manual</span>
-                <textarea id="massivasDebugAlarmsAlphaHidden" rows="8" data-i18n-placeholder="debugPlaceholder" placeholder="Cole aqui os alarmes para testar a análise manual"></textarea>
-              </label>
-              <p class="massivas-copy" data-i18n="manualAnalysisNote">A análise usa os alarmes colados no campo de debug manual.</p>
-              <div class="massivas-actions">
-                <button class="ghost-button massivas-prev" type="button"><i data-lucide="arrow-left"></i> <span data-i18n="back">Voltar</span></button>
-                <button class="primary-button" id="massivasDebugButton" type="button"><i data-lucide="scan-search"></i> <span data-i18n="generateManualAnalysis">Gerar análise manual</span></button>
-              </div>
+              <textarea id="massivasHostsAlphaHidden" hidden></textarea>
+              <textarea id="massivasDebugAlarmsAlphaHidden" hidden></textarea>
+              <button id="massivasDebugButton" type="button" hidden></button>
             </article>
-
             <article class="massivas-step" data-massivas-step="98" hidden>
-              <div class="step-heading">
-                <span class="step-count">4</span>
-                <div>
-                  <p class="eyebrow" data-i18n="alphaTests">Resultado ALPHA/TESTES</p>
-                  <h2><i data-lucide="scan-search"></i> <span data-i18n="reviewAnalysis">Revisar análise gerada</span></h2>
-                </div>
-              </div>
-              <label class="field wide">
-                <span data-i18n="massivaAnalysis">Análise da massiva - ALPHA/TESTES</span>
-                <textarea id="massivasSummary" rows="10" readonly></textarea>
-              </label>
-              <p class="massivas-copy" data-i18n="analysisTextNote">O texto começa com ### ANÁLISE DA MASSIVA ### e já traz conclusão, direcionamento e evidências.</p>
-              <div class="massivas-actions">
-                <button class="ghost-button massivas-prev" type="button"><i data-lucide="arrow-left"></i> <span data-i18n="back">Voltar</span></button>
-                <button class="primary-button massivas-next" type="button"><i data-lucide="arrow-right"></i> <span data-i18n="nextStep">Próximo passo</span></button>
-              </div>
+              <textarea id="massivasSummary" hidden></textarea>
             </article>
 
+            <!-- Massivas Step 3: Finalização -->
             <article class="massivas-step" data-massivas-step="3">
-              <div class="step-heading">
-                <span class="step-count">3</span>
-                <div>
-                  <p class="eyebrow" data-i18n="finalization">Finalização</p>
-                  <h2><i data-lucide="rotate-ccw"></i> <span data-i18n="concludeRestart">Concluir e reiniciar o fluxo</span></h2>
+              <div class="card card-noc p-4 mb-3 text-center">
+                <div class="mb-3">
+                  <span class="badge bg-danger-subtle text-danger p-3 rounded-circle fs-3"><i class="bi bi-check2-circle"></i></span>
                 </div>
+                <h5 class="fw-bold" data-i18n="concludeRestart">Concluir e reiniciar o fluxo</h5>
+                <p class="text-secondary small">Use este passo para finalizar a massiva atual e voltar ao início do fluxo com uma nova base.</p>
               </div>
-              <p class="massivas-copy" data-i18n="concludeRestart">Use este passo para finalizar a massiva atual e voltar ao início do fluxo com uma nova base.</p>
-              <div class="massivas-actions">
-                <button class="ghost-button massivas-prev" type="button"><i data-lucide="arrow-left"></i> <span data-i18n="back">Voltar</span></button>
-                <button class="primary-button" id="massivasFinishButton" type="button"><i data-lucide="rotate-ccw"></i> <span data-i18n="finishReturnStart">Finalizar e voltar ao início</span></button>
+              <div class="d-flex justify-content-between">
+                <button class="btn btn-outline-secondary massivas-prev" type="button">
+                  <i class="bi bi-arrow-left"></i> <span data-i18n="back">Voltar</span>
+                </button>
+                <button class="btn btn-danger d-inline-flex align-items-center gap-2 px-4 py-2" id="massivasFinishButton" type="button">
+                  <i class="bi bi-arrow-repeat"></i> <span data-i18n="finishReturnStart">Finalizar e voltar ao início</span>
+                </button>
               </div>
             </article>
           </section>
-        </div>
-      </section>
 
-      <section class="workspace animate__animated animate__fadeIn" aria-label="Gerador de descrições NOC">
-        <nav class="navbar" aria-label="Navegação principal">
-          <div class="brand">
-            <span class="brand-mark" aria-hidden="true"><i data-lucide="radio-tower"></i></span>
-            <div>
-              <p class="eyebrow" data-i18n="developedBy">Developed by Alexsander</p>
-              <h1 data-i18n="appTitle">NOC IP TOOL</h1>
-            </div>
-          </div>
-
-          <p class="status" id="status" role="status" aria-live="polite" data-i18n="readyToGenerate">Pronto para gerar.</p>
-          <div class="navbar-actions">
-            <button class="ghost-button" id="manualHomeButton" type="button"><i data-lucide="house"></i> <span data-i18n="home">Início</span></button>
-            <button class="ghost-button" id="manualAutoButton" type="button"><i data-lucide="wand-sparkles"></i> <span data-i18n="autoFlow">Fluxo auto</span></button>
-          </div>
-        </nav>
-
-        <div class="tool-grid">
-          <form class="input-panel" id="generatorForm">
-            <section class="panel-section quick-section">
-              <label class="field wide">
-                  <span data-i18n="alarmsEventEvidence">Alarmes, evento ou evidência</span>
-                <textarea id="events" rows="7" data-i18n-placeholder="alarmsEventPlaceholder" placeholder="Cole os alarmes aqui. A extração acontece automaticamente."></textarea>
-              </label>
-              <div class="field-row three compact-fields">
-                <label class="field">
-                  <span data-i18n="carrier">Operadora</span>
-                  <input list="partnersList" id="carrier" type="text" value="CLARO" autocomplete="off">
-                </label>
-                <label class="field">
-                  <span data-i18n="internalTicket">Chamado interno</span>
-                  <input id="internalTicket" type="text" data-i18n-placeholder="internalTicketPlaceholder" placeholder="588604">
-                </label>
-                <label class="field">
-                  <span data-i18n="externalTicket">Protocolo externo</span>
-                  <input id="externalTicket" type="text" data-i18n-placeholder="externalTicketPlaceholder" placeholder="EVE260500076687">
-                </label>
+          <!-- ================================================================
+               VIEW 4: EDIÇÃO MANUAL / WORKSPACE
+               ================================================================ -->
+          <section class="app-view-container animate__animated animate__fadeIn" id="workspace" aria-label="Gerador de descrições NOC">
+            <!-- Header bar for Manual Mode -->
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+              <div>
+                <h2 class="h4 fw-bold mb-1 d-flex align-items-center gap-2">
+                  <i class="bi bi-sliders text-info"></i> <span data-i18n="manualEdit">Edição Manual</span> - Gerador NOC
+                </h2>
+                <p class="text-secondary small mb-0" id="status" role="status" aria-live="polite" data-i18n="readyToGenerate">Pronto para gerar.</p>
               </div>
-            </section>
-
-            <details class="advanced-drawer">
-              <summary data-i18n="detectedFieldsAdjustments">Campos detectados e ajustes</summary>
-              <div class="advanced-grid">
-                <section class="panel-section">
-                  <h2><i data-lucide="file-text"></i> <span data-i18n="bdeskDescription">Descrição Bdesk</span></h2>
-                  <div class="field-row four">
-                    <label class="field">
-                      <span data-i18n="failureType">Tipo de falha</span>
-                      <input list="failureTypesList" id="failureType" type="text" value="INDISPONIBILIDADE" autocomplete="off">
-                      <datalist id="failureTypesList"></datalist>
-                    </label>
-                    <label class="field">
-                      <span data-i18n="partner">Parceiro</span>
-                      <input list="partnersList" id="partner" type="text" autocomplete="off">
-                      <datalist id="partnersList"></datalist>
-                    </label>
-                    <label class="field">
-                      <span data-i18n="fiber">Fibra</span>
-                      <select id="fiber">
-                        <option>ONLY</option>
-                        <option>WORK</option>
-                        <option>PROT</option>
-                      </select>
-                    </label>
-                    <label class="field">
-                      <span data-i18n="mode">Modo</span>
-                      <select id="descriptionMode">
-                        <option value="auto" data-i18n="auto">Automático</option>
-                        <option value="single" data-i18n="singleEnd">Ponta única</option>
-                        <option value="route" data-i18n="twoEnds">Duas pontas</option>
-                      </select>
-                    </label>
-                  </div>
-                  <div class="field-row two">
-                    <label class="field">
-                      <span data-i18n="hostnameA">Hostname A</span>
-                      <input id="hostA" type="text" data-i18n-placeholder="hostnameAPlaceholder" placeholder="BR-RJ-RJO-CTL-TP-02" autocomplete="off">
-                    </label>
-                    <label class="field">
-                      <span data-i18n="hostnameB">Hostname B</span>
-                      <input id="hostB" type="text" data-i18n-placeholder="hostnameBPlaceholder" placeholder="BR-SP-SPO-CTL-TP-04" autocomplete="off">
-                    </label>
-                  </div>
-                </section>
-
-                <section class="panel-section">
-                  <h2><i data-lucide="route"></i> <span data-i18n="circuitData">Dados do circuito</span></h2>
-                  <div class="field-row two">
-                    <label class="field">
-                      <span data-i18n="designations">Designações</span>
-                      <textarea id="designations" rows="3" data-i18n-placeholder="designationsPlaceholder" placeholder="CAP:TIM:RJOCOACAP287332-CID:581006"></textarea>
-                    </label>
-                    <label class="field">
-                      <span data-i18n="bdeskIdentification">Identificação Bdesk</span>
-                      <textarea id="bdeskTitle" rows="3" data-i18n-placeholder="bdeskTitlePlaceholder" placeholder="RJ::IND::RIO DE JANEIRO_CTL<>SAO PAULO_CTL::ONLY::TIM"></textarea>
-                    </label>
-                  </div>
-                  <div class="field-row four">
-                    <label class="field">
-                      <span data-i18n="origin">Origem</span>
-                      <input id="origin" type="text" data-i18n-placeholder="originPlaceholder" placeholder="RIO DE JANEIRO">
-                    </label>
-                    <label class="field">
-                      <span data-i18n="destination">Destino</span>
-                      <input id="destination" type="text" data-i18n-placeholder="destinationPlaceholder" placeholder="SAO PAULO">
-                    </label>
-                    <label class="field">
-                      <span data-i18n="failureTime">Horário da falha</span>
-                      <input id="failureTime" type="text" data-i18n-placeholder="failureTimePlaceholder" placeholder="15/05/2026 13:54">
-                    </label>
-                  </div>
-                </section>
-
-                <section class="panel-section">
-                  <h2><i data-lucide="clipboard-list"></i> <span data-i18n="nocStamp">Carimbo NOC</span></h2>
-                  <div class="field-row two">
-                    <label class="field">
-                      <span data-i18n="symptomComplaint">Sintoma/reclamação</span>
-                      <input id="symptom" type="text" value="Capacidade indisponível">
-                    </label>
-                    <label class="field">
-                      <span data-i18n="diagnosis">Diagnóstico</span>
-                      <input id="diagnosis" type="text" value="Provável falha na operadora parceira">
-                    </label>
-                  </div>
-                  <div class="field-row three">
-                    <label class="field">
-                      <span data-i18n="facilities">Facilidades</span>
-                      <input id="facilities" type="text" value="Segue abaixo">
-                    </label>
-                    <label class="field">
-                      <span data-i18n="actionTaken">Ação tomada</span>
-                      <input id="actionTaken" type="text">
-                    </label>
-                    <label class="field">
-                      <span data-i18n="nextAction">Próxima ação</span>
-                      <input id="nextAction" type="text">
-                    </label>
-                  </div>
-                  <div class="field-row four">
-                    <label class="field">
-                      <span data-i18n="spokenWith">Falado com</span>
-                      <input id="spokenWith" type="text">
-                    </label>
-                    <label class="field">
-                      <span data-i18n="channel">Canal</span>
-                      <select id="channel">
-                        <option>Email</option>
-                        <option>WhatsApp</option>
-                        <option>Telegram</option>
-                        <option>Telefone</option>
-                        <option>Portal</option>
-                      </select>
-                    </label>
-                    <label class="field">
-                      <span data-i18n="forecast">Previsão</span>
-                      <input id="forecast" type="text" value="Sem previsão">
-                    </label>
-                    <label class="field">
-                      <span data-i18n="phoneExtra">Telefone/canal extra</span>
-                      <input id="phoneChannel" type="text" data-i18n-placeholder="phoneExtraPlaceholder" placeholder="0800 880 7000">
-                    </label>
-                  </div>
-                </section>
-
-                <section class="panel-section">
-                  <h2><i data-lucide="send"></i> <span data-i18n="emailBilling">E-mail e cobrança</span></h2>
-                  <div class="field-row two">
-                    <label class="field">
-                      <span data-i18n="recipients">Destinatários</span>
-                      <textarea id="recipients" rows="3"></textarea>
-                    </label>
-                    <label class="field">
-                      <span data-i18n="copyTo">Cópia</span>
-                      <textarea id="copyTo" rows="3">noc-l@alloha.com</textarea>
-                    </label>
-                  </div>
-                  <div class="field-row three">
-                    <label class="field">
-                      <span data-i18n="greeting">Saudação</span>
-                      <select id="greeting">
-                        <option data-i18n="goodMorning">Bom dia</option>
-                        <option selected data-i18n="goodAfternoon">Boa tarde</option>
-                        <option data-i18n="goodEvening">Boa noite</option>
-                      </select>
-                    </label>
-                    <label class="field">
-                      <span data-i18n="outageType">Tipo de indisponibilidade</span>
-                      <input id="outageText" type="text" value="transporte de capacidade indisponível">
-                    </label>
-                  </div>
-                </section>
+              <div class="d-flex gap-2">
+                <button class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" id="manualHomeButton" type="button">
+                  <i class="bi bi-house"></i> <span data-i18n="home">Início</span>
+                </button>
+                <button class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1" id="manualAutoButton" type="button">
+                  <i class="bi bi-magic"></i> <span data-i18n="autoFlow">Fluxo auto</span>
+                </button>
               </div>
-            </details>
-          </form>
-
-          <aside class="output-panel" aria-label="Copiar campos gerados">
-            <div class="copy-board">
-              <section class="copy-section animate__animated animate__fadeInUp">
-                <h2><i data-lucide="copy"></i> <span data-i18n="copyModels">Copiar modelos</span></h2>
-                <div class="copy-grid">
-                  <button class="copy-action" type="button" data-copy-kind="description" data-preview-kind="description" title="Copiar descrição Bdesk"><i data-lucide="file-text"></i> <span data-i18n="bdeskDescription">Bdesk</span></button>
-                  <button class="copy-action" type="button" data-copy-kind="recognize" data-preview-kind="recognize" title="Copiar reconhecimento dos alarmes"><i data-lucide="badge-check"></i> <span data-i18n="recognizeAlarms">Reconhecer alarmes</span></button>
-                  <button class="copy-action" type="button" data-copy-kind="opening" data-preview-kind="opening" title="Copiar abertura NOC"><i data-lucide="clipboard-list"></i> <span data-i18n="opening">Abertura</span></button>
-                  <button class="copy-action" type="button" data-copy-kind="update" data-preview-kind="update" title="Copiar atualização NOC"><i data-lucide="refresh-cw"></i> <span data-i18n="update">Atualização</span></button>
-                  <button class="copy-action" type="button" data-copy-kind="email" data-preview-kind="email" title="Copiar e-mail ou solicitação"><i data-lucide="mail"></i> <span data-i18n="email">E-mail</span></button>
-                  <button class="copy-action" type="button" data-copy-kind="contact" data-preview-kind="contact" title="Copiar contato do parceiro"><i data-lucide="contact"></i> <span data-i18n="contact">Contato</span></button>
-                </div>
-              </section>
-
-              <section class="copy-section animate__animated animate__fadeInUp">
-                <h2><i data-lucide="messages-square"></i> <span data-i18n="standardMessages">Mensagens padrão</span></h2>
-                <div class="copy-grid">
-                  <button class="copy-action" type="button" data-copy-kind="charge-0" data-preview-kind="charge-0" title="Copiar pedido de atualização"><i data-lucide="message-circle-question"></i> <span data-i18n="updateQuestion">Atualização?</span></button>
-                  <button class="copy-action" type="button" data-copy-kind="charge-1" data-preview-kind="charge-1" title="Copiar circuito indisponível"><i data-lucide="circle-alert"></i> <span data-i18n="unavailable">Indisponível</span></button>
-                  <button class="copy-action" type="button" data-copy-kind="charge-2" data-preview-kind="charge-2" title="Copiar atualização para grupo"><i data-lucide="messages-square"></i> <span data-i18n="dearAll">Prezados?</span></button>
-                  <button class="copy-action" type="button" data-copy-kind="charge-3" data-preview-kind="charge-3" title="Copiar cobrança de retorno"><i data-lucide="reply"></i> <span data-i18n="returnMsg">Retorno</span></button>
-                  <button class="copy-action" type="button" data-copy-kind="charge-4" data-preview-kind="charge-4" title="Copiar solicitação de RFO"><i data-lucide="search-check"></i> <span data-i18n="rfoQuestion">RFO?</span></button>
-                </div>
-              </section>
-
-              <section class="preview-panel animate__animated animate__fadeInUp" aria-label="Prévia do texto">
-                <div class="preview-heading">
-                  <h2 id="previewTitle"><i data-lucide="eye"></i> <span data-i18n="preview">Prévia</span></h2>
-                </div>
-                <pre id="previewText" data-i18n="previewPlaceholder">Passe o mouse em um botão para ver uma prévia.</pre>
-              </section>
             </div>
 
-            <div class="hidden-outputs" aria-hidden="true">
-              <textarea id="descriptionOutput" tabindex="-1"></textarea>
-              <textarea id="recognizeOutput" tabindex="-1"></textarea>
-              <textarea id="openingOutput" tabindex="-1"></textarea>
-              <textarea id="updateOutput" tabindex="-1"></textarea>
-              <textarea id="emailOutput" tabindex="-1"></textarea>
-              <textarea id="chargeOutput" tabindex="-1"></textarea>
-              <textarea id="contactOutput" tabindex="-1"></textarea>
-              <input id="contact" type="hidden">
-              <input id="requesterName" type="hidden">
-            </div>
-          </aside>
-        </div>
-      </section>
-    </main>
+            <div class="row g-4">
+              <!-- Left Column: Generator Form -->
+              <div class="col-xl-8 col-lg-7">
+                <form id="generatorForm">
+                  <!-- Quick Section -->
+                  <div class="card card-noc p-4 mb-4">
+                    <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                      <i class="bi bi-lightning-charge text-primary"></i> <span>Entrada Rápida de Alarmes</span>
+                    </h5>
+                    <div class="mb-3">
+                      <label class="form-label fw-bold small" for="events" data-i18n="alarmsEventEvidence">Alarmes, evento ou evidência</label>
+                      <textarea class="form-control font-monospace" id="events" rows="7" data-i18n-placeholder="alarmsEventPlaceholder" placeholder="Cole os alarmes aqui. A extração acontece automaticamente."></textarea>
+                    </div>
+                    <div class="row g-3">
+                      <div class="col-md-4">
+                        <label class="form-label fw-bold small" for="carrier" data-i18n="carrier">Operadora</label>
+                        <input list="partnersList" class="form-control" id="carrier" type="text" value="CLARO" autocomplete="off">
+                      </div>
+                      <div class="col-md-4">
+                        <label class="form-label fw-bold small" for="internalTicket" data-i18n="internalTicket">Chamado interno</label>
+                        <input class="form-control" id="internalTicket" type="text" data-i18n-placeholder="internalTicketPlaceholder" placeholder="588604">
+                      </div>
+                      <div class="col-md-4">
+                        <label class="form-label fw-bold small" for="externalTicket" data-i18n="externalTicket">Protocolo externo</label>
+                        <input class="form-control" id="externalTicket" type="text" data-i18n-placeholder="externalTicketPlaceholder" placeholder="EVE260500076687">
+                      </div>
+                    </div>
+                  </div>
 
-    <dialog class="parameters-dialog" id="parametersDialog" aria-labelledby="parametersTitle">
-      <form class="parameters-card" method="dialog">
-        <div class="parameters-header">
+                  <!-- Advanced Accordion Drawer -->
+                  <div class="accordion" id="accordionAdvancedSettings">
+                    <div class="accordion-item card card-noc border-0 overflow-hidden mb-3">
+                      <h2 class="accordion-header" id="headingAdvanced">
+                        <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAdvanced" aria-expanded="false" aria-controls="collapseAdvanced">
+                          <i class="bi bi-sliders2 me-2 text-primary"></i> <span data-i18n="detectedFieldsAdjustments">Campos detectados e ajustes avançados</span>
+                        </button>
+                      </h2>
+                      <div id="collapseAdvanced" class="accordion-collapse collapse" aria-labelledby="headingAdvanced" data-bs-parent="#accordionAdvancedSettings">
+                        <div class="accordion-body p-4">
+                          
+                          <!-- Sub-section: Descrição Bdesk -->
+                          <div class="mb-4">
+                            <h6 class="fw-bold text-primary mb-3 d-flex align-items-center gap-2">
+                              <i class="bi bi-file-earmark-text"></i> <span data-i18n="bdeskDescription">Descrição Bdesk</span>
+                            </h6>
+                            <div class="row g-3 mb-3">
+                              <div class="col-md-3">
+                                <label class="form-label fw-bold small" for="failureType" data-i18n="failureType">Tipo de falha</label>
+                                <input list="failureTypesList" class="form-control form-control-sm" id="failureType" type="text" value="INDISPONIBILIDADE" autocomplete="off">
+                                <datalist id="failureTypesList"></datalist>
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label fw-bold small" for="partner" data-i18n="partner">Parceiro</label>
+                                <input list="partnersList" class="form-control form-control-sm" id="partner" type="text" autocomplete="off">
+                                <datalist id="partnersList"></datalist>
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label fw-bold small" for="fiber" data-i18n="fiber">Fibra</label>
+                                <select class="form-select form-select-sm" id="fiber">
+                                  <option>ONLY</option>
+                                  <option>WORK</option>
+                                  <option>PROT</option>
+                                </select>
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label fw-bold small" for="descriptionMode" data-i18n="mode">Modo</label>
+                                <select class="form-select form-select-sm" id="descriptionMode">
+                                  <option value="auto" data-i18n="auto">Automático</option>
+                                  <option value="single" data-i18n="singleEnd">Ponta única</option>
+                                  <option value="route" data-i18n="twoEnds">Duas pontas</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div class="row g-3">
+                              <div class="col-md-6">
+                                <label class="form-label fw-bold small" for="hostA" data-i18n="hostnameA">Hostname A</label>
+                                <input class="form-control form-control-sm" id="hostA" type="text" data-i18n-placeholder="hostnameAPlaceholder" placeholder="BR-RJ-RJO-CTL-TP-02" autocomplete="off">
+                              </div>
+                              <div class="col-md-6">
+                                <label class="form-label fw-bold small" for="hostB" data-i18n="hostnameB">Hostname B</label>
+                                <input class="form-control form-control-sm" id="hostB" type="text" data-i18n-placeholder="hostnameBPlaceholder" placeholder="BR-SP-SPO-CTL-TP-04" autocomplete="off">
+                              </div>
+                            </div>
+                          </div>
+
+                          <hr class="my-3">
+
+                          <!-- Sub-section: Dados do Circuito -->
+                          <div class="mb-4">
+                            <h6 class="fw-bold text-primary mb-3 d-flex align-items-center gap-2">
+                              <i class="bi bi-diagram-2"></i> <span data-i18n="circuitData">Dados do circuito</span>
+                            </h6>
+                            <div class="row g-3 mb-3">
+                              <div class="col-md-6">
+                                <label class="form-label fw-bold small" for="designations" data-i18n="designations">Designações</label>
+                                <textarea class="form-control form-control-sm" id="designations" rows="3" data-i18n-placeholder="designationsPlaceholder" placeholder="CAP:TIM:RJOCOACAP287332-CID:581006"></textarea>
+                              </div>
+                              <div class="col-md-6">
+                                <label class="form-label fw-bold small" for="bdeskTitle" data-i18n="bdeskIdentification">Identificação Bdesk</label>
+                                <textarea class="form-control form-control-sm" id="bdeskTitle" rows="3" data-i18n-placeholder="bdeskTitlePlaceholder" placeholder="RJ::IND::RIO DE JANEIRO_CTL<>SAO PAULO_CTL::ONLY::TIM"></textarea>
+                              </div>
+                            </div>
+                            <div class="row g-3">
+                              <div class="col-md-4">
+                                <label class="form-label fw-bold small" for="origin" data-i18n="origin">Origem</label>
+                                <input class="form-control form-control-sm" id="origin" type="text" data-i18n-placeholder="originPlaceholder" placeholder="RIO DE JANEIRO">
+                              </div>
+                              <div class="col-md-4">
+                                <label class="form-label fw-bold small" for="destination" data-i18n="destination">Destino</label>
+                                <input class="form-control form-control-sm" id="destination" type="text" data-i18n-placeholder="destinationPlaceholder" placeholder="SAO PAULO">
+                              </div>
+                              <div class="col-md-4">
+                                <label class="form-label fw-bold small" for="failureTime" data-i18n="failureTime">Horário da falha</label>
+                                <input class="form-control form-control-sm" id="failureTime" type="text" data-i18n-placeholder="failureTimePlaceholder" placeholder="15/05/2026 13:54">
+                              </div>
+                            </div>
+                          </div>
+
+                          <hr class="my-3">
+
+                          <!-- Sub-section: Carimbo NOC -->
+                          <div class="mb-4">
+                            <h6 class="fw-bold text-primary mb-3 d-flex align-items-center gap-2">
+                              <i class="bi bi-clipboard-check"></i> <span data-i18n="nocStamp">Carimbo NOC</span>
+                            </h6>
+                            <div class="row g-3 mb-3">
+                              <div class="col-md-6">
+                                <label class="form-label fw-bold small" for="symptom" data-i18n="symptomComplaint">Sintoma/reclamação</label>
+                                <input class="form-control form-control-sm" id="symptom" type="text" value="Capacidade indisponível">
+                              </div>
+                              <div class="col-md-6">
+                                <label class="form-label fw-bold small" for="diagnosis" data-i18n="diagnosis">Diagnóstico</label>
+                                <input class="form-control form-control-sm" id="diagnosis" type="text" value="Provável falha na operadora parceira">
+                              </div>
+                            </div>
+                            <div class="row g-3 mb-3">
+                              <div class="col-md-4">
+                                <label class="form-label fw-bold small" for="facilities" data-i18n="facilities">Facilidades</label>
+                                <input class="form-control form-control-sm" id="facilities" type="text" value="Segue abaixo">
+                              </div>
+                              <div class="col-md-4">
+                                <label class="form-label fw-bold small" for="actionTaken" data-i18n="actionTaken">Ação tomada</label>
+                                <input class="form-control form-control-sm" id="actionTaken" type="text">
+                              </div>
+                              <div class="col-md-4">
+                                <label class="form-label fw-bold small" for="nextAction" data-i18n="nextAction">Próxima ação</label>
+                                <input class="form-control form-control-sm" id="nextAction" type="text">
+                              </div>
+                            </div>
+                            <div class="row g-3">
+                              <div class="col-md-3">
+                                <label class="form-label fw-bold small" for="spokenWith" data-i18n="spokenWith">Falado com</label>
+                                <input class="form-control form-control-sm" id="spokenWith" type="text">
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label fw-bold small" for="channel" data-i18n="channel">Canal</label>
+                                <select class="form-select form-select-sm" id="channel">
+                                  <option>Email</option>
+                                  <option>WhatsApp</option>
+                                  <option>Telegram</option>
+                                  <option>Telefone</option>
+                                  <option>Portal</option>
+                                </select>
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label fw-bold small" for="forecast" data-i18n="forecast">Previsão</label>
+                                <input class="form-control form-control-sm" id="forecast" type="text" value="Sem previsão">
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label fw-bold small" for="phoneChannel" data-i18n="phoneExtra">Telefone/canal extra</label>
+                                <input class="form-control form-control-sm" id="phoneChannel" type="text" data-i18n-placeholder="phoneExtraPlaceholder" placeholder="0800 880 7000">
+                              </div>
+                            </div>
+                          </div>
+
+                          <hr class="my-3">
+
+                          <!-- Sub-section: E-mail e Cobrança -->
+                          <div>
+                            <h6 class="fw-bold text-primary mb-3 d-flex align-items-center gap-2">
+                              <i class="bi bi-send"></i> <span data-i18n="emailBilling">E-mail e cobrança</span>
+                            </h6>
+                            <div class="row g-3 mb-3">
+                              <div class="col-md-6">
+                                <label class="form-label fw-bold small" for="recipients" data-i18n="recipients">Destinatários</label>
+                                <textarea class="form-control form-control-sm" id="recipients" rows="2"></textarea>
+                              </div>
+                              <div class="col-md-6">
+                                <label class="form-label fw-bold small" for="copyTo" data-i18n="copyTo">Cópia</label>
+                                <textarea class="form-control form-control-sm" id="copyTo" rows="2">noc-l@alloha.com</textarea>
+                              </div>
+                            </div>
+                            <div class="row g-3">
+                              <div class="col-md-4">
+                                <label class="form-label fw-bold small" for="greeting" data-i18n="greeting">Saudação</label>
+                                <select class="form-select form-select-sm" id="greeting">
+                                  <option data-i18n="goodMorning">Bom dia</option>
+                                  <option selected data-i18n="goodAfternoon">Boa tarde</option>
+                                  <option data-i18n="goodEvening">Boa noite</option>
+                                </select>
+                              </div>
+                              <div class="col-md-8">
+                                <label class="form-label fw-bold small" for="outageText" data-i18n="outageType">Tipo de indisponibilidade</label>
+                                <input class="form-control form-control-sm" id="outageText" type="text" value="transporte de capacidade indisponível">
+                              </div>
+                            </div>
+                          </div>
+
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </form>
+              </div>
+
+              <!-- Right Column: Sticky Copy Board & Preview -->
+              <div class="col-xl-4 col-lg-5">
+                <div class="position-sticky" style="top: 86px;">
+                  
+                  <!-- Card: Copiar Modelos -->
+                  <div class="card card-noc p-3 mb-3">
+                    <h6 class="fw-bold mb-2.5 d-flex align-items-center gap-2">
+                      <i class="bi bi-clipboard text-primary"></i> <span data-i18n="copyModels">Copiar modelos</span>
+                    </h6>
+                    <div class="row g-2">
+                      <div class="col-6">
+                        <button class="btn btn-outline-secondary btn-sm w-100 copy-action d-flex align-items-center justify-content-center gap-1.5 py-2" type="button" data-copy-kind="description" data-preview-kind="description">
+                          <i class="bi bi-file-text"></i> <span data-i18n="bdeskDescription">Bdesk</span>
+                        </button>
+                      </div>
+                      <div class="col-6">
+                        <button class="btn btn-outline-secondary btn-sm w-100 copy-action d-flex align-items-center justify-content-center gap-1.5 py-2" type="button" data-copy-kind="recognize" data-preview-kind="recognize">
+                          <i class="bi bi-patch-check"></i> <span data-i18n="recognizeAlarms">Reconhecer</span>
+                        </button>
+                      </div>
+                      <div class="col-6">
+                        <button class="btn btn-outline-secondary btn-sm w-100 copy-action d-flex align-items-center justify-content-center gap-1.5 py-2" type="button" data-copy-kind="opening" data-preview-kind="opening">
+                          <i class="bi bi-card-checklist"></i> <span data-i18n="opening">Abertura</span>
+                        </button>
+                      </div>
+                      <div class="col-6">
+                        <button class="btn btn-outline-secondary btn-sm w-100 copy-action d-flex align-items-center justify-content-center gap-1.5 py-2" type="button" data-copy-kind="update" data-preview-kind="update">
+                          <i class="bi bi-arrow-repeat"></i> <span data-i18n="update">Atualização</span>
+                        </button>
+                      </div>
+                      <div class="col-6">
+                        <button class="btn btn-outline-secondary btn-sm w-100 copy-action d-flex align-items-center justify-content-center gap-1.5 py-2" type="button" data-copy-kind="email" data-preview-kind="email">
+                          <i class="bi bi-envelope"></i> <span data-i18n="email">E-mail</span>
+                        </button>
+                      </div>
+                      <div class="col-6">
+                        <button class="btn btn-outline-secondary btn-sm w-100 copy-action d-flex align-items-center justify-content-center gap-1.5 py-2" type="button" data-copy-kind="contact" data-preview-kind="contact">
+                          <i class="bi bi-person-lines-fill"></i> <span data-i18n="contact">Contato</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Card: Mensagens Padrão -->
+                  <div class="card card-noc p-3 mb-3">
+                    <h6 class="fw-bold mb-2.5 d-flex align-items-center gap-2">
+                      <i class="bi bi-chat-dots text-primary"></i> <span data-i18n="standardMessages">Mensagens padrão</span>
+                    </h6>
+                    <div class="d-flex flex-wrap gap-1.5">
+                      <button class="btn btn-outline-secondary btn-sm copy-action" type="button" data-copy-kind="charge-0" data-preview-kind="charge-0" title="Copiar pedido de atualização">
+                        <i class="bi bi-question-circle"></i> <span data-i18n="updateQuestion">Atualização?</span>
+                      </button>
+                      <button class="btn btn-outline-secondary btn-sm copy-action" type="button" data-copy-kind="charge-1" data-preview-kind="charge-1" title="Copiar circuito indisponível">
+                        <i class="bi bi-exclamation-triangle"></i> <span data-i18n="unavailable">Indisponível</span>
+                      </button>
+                      <button class="btn btn-outline-secondary btn-sm copy-action" type="button" data-copy-kind="charge-2" data-preview-kind="charge-2" title="Copiar atualização para grupo">
+                        <i class="bi bi-people"></i> <span data-i18n="dearAll">Prezados?</span>
+                      </button>
+                      <button class="btn btn-outline-secondary btn-sm copy-action" type="button" data-copy-kind="charge-3" data-preview-kind="charge-3" title="Copiar cobrança de retorno">
+                        <i class="bi bi-reply"></i> <span data-i18n="returnMsg">Retorno</span>
+                      </button>
+                      <button class="btn btn-outline-secondary btn-sm copy-action" type="button" data-copy-kind="charge-4" data-preview-kind="charge-4" title="Copiar solicitação de RFO">
+                        <i class="bi bi-search"></i> <span data-i18n="rfoQuestion">RFO?</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Card: Prévia Dinâmica -->
+                  <div class="card card-noc p-3">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                      <h6 class="fw-bold mb-0 d-flex align-items-center gap-1.5" id="previewTitle">
+                        <i class="bi bi-eye text-primary"></i> <span data-i18n="preview">Prévia</span>
+                      </h6>
+                      <span class="badge bg-secondary-subtle text-secondary small">Hover / Foco</span>
+                    </div>
+                    <pre class="preview-box" id="previewText" data-i18n="previewPlaceholder">Passe o mouse em um botão para ver uma prévia.</pre>
+                  </div>
+
+                  <!-- Hidden Outputs for Clipboard Engine -->
+                  <div class="hidden-outputs" aria-hidden="true" style="display: none;">
+                    <textarea id="descriptionOutput" tabindex="-1"></textarea>
+                    <textarea id="recognizeOutput" tabindex="-1"></textarea>
+                    <textarea id="openingOutput" tabindex="-1"></textarea>
+                    <textarea id="updateOutput" tabindex="-1"></textarea>
+                    <textarea id="emailOutput" tabindex="-1"></textarea>
+                    <textarea id="chargeOutput" tabindex="-1"></textarea>
+                    <textarea id="contactOutput" tabindex="-1"></textarea>
+                    <input id="contact" type="hidden">
+                    <input id="requesterName" type="hidden">
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          </section>
+
+        </main>
+      </div>
+    </div>
+
+    <!-- ====================================================================
+         MODALS & FLOATING DIALOGS
+         ==================================================================== -->
+
+    <!-- Parameters Dialog (HTML5 Dialog styled as modern modal) -->
+    <dialog class="parameters-dialog" id="parametersDialog" aria-labelledby="parametersTitle" style="border: 0; padding: 0; background: transparent;">
+      <form class="card card-noc shadow-lg p-4" method="dialog" style="max-width: 500px; width: 92vw; margin: auto; border-radius: 1rem;">
+        <div class="d-flex align-items-center justify-content-between pb-3 mb-3 border-bottom">
           <div>
-            <p class="eyebrow" data-i18n="defaultParameters">Parâmetros padrão</p>
-            <h2 id="parametersTitle" data-i18n="analystContactName">Contato e nome do analista</h2>
+            <span class="text-secondary small fw-bold text-uppercase" data-i18n="defaultParameters">Parâmetros padrão</span>
+            <h5 class="fw-bold mb-0" id="parametersTitle" data-i18n="analystContactName">Contato e nome do analista</h5>
           </div>
-          <button class="icon-button" id="closeParametersButton" type="button" aria-label="Fechar parâmetros"><i data-lucide="x"></i></button>
+          <button class="btn-close" id="closeParametersButton" type="button" aria-label="Fechar"></button>
         </div>
-        <p class="parameters-copy" data-i18n="parametersInfo">Quando preenchidos, esses dados ficam salvos localmente e passam a ser o padrão da ferramenta.</p>
-        <label class="field">
-          <span data-i18n="analystContact">Contato do analista</span>
-          <input id="paramContact" type="text" data-i18n-placeholder="analystContactPlaceholder" placeholder="+55 (11) 94706-4266">
-        </label>
-        <label class="field">
-          <span data-i18n="analystName">Nome do analista</span>
-          <input id="paramRequesterName" type="text" data-i18n-placeholder="analystNamePlaceholder" placeholder="SEU NOME AQUI">
-        </label>
-        <label class="toggle-field">
-          <input id="paramUseEmojis" type="checkbox" checked>
-          <span data-i18n="useEmojisText">Usar emojis nos textos operacionais</span>
-        </label>
-        <label class="toggle-field">
-          <input id="paramDarkTheme" type="checkbox">
-          <span data-i18n="darkTheme">Tema escuro</span>
-        </label>
-        <div class="lang-selector" style="margin-top: 12px;">
-          <span data-i18n="language" style="margin-right: 8px; font-size: 14px;">Idioma:</span>
-          <button class="lang-btn active" type="button" data-lang="pt" onclick="setLang('pt', event)">PT</button>
-          <button class="lang-btn" type="button" data-lang="en" onclick="setLang('en', event)">EN</button>
-          <button class="lang-btn" type="button" data-lang="es" onclick="setLang('es', event)">ES</button>
+        
+        <p class="text-secondary small" data-i18n="parametersInfo">Quando preenchidos, esses dados ficam salvos localmente e passam a ser o padrão da ferramenta.</p>
+        
+        <div class="mb-3">
+          <label class="form-label fw-bold small" for="paramContact" data-i18n="analystContact">Contato do analista</label>
+          <input class="form-control" id="paramContact" type="text" data-i18n-placeholder="analystContactPlaceholder" placeholder="+55 (11) 94706-4266">
         </div>
-        <div class="parameters-actions">
-          <button class="ghost-button" id="cancelParametersButton" type="button"><span data-i18n="cancel">Cancelar</span></button>
-          <button class="primary-button" id="saveParametersButton" type="button"><span data-i18n="saveParameters">Salvar parâmetros</span></button>
+        
+        <div class="mb-3">
+          <label class="form-label fw-bold small" for="paramRequesterName" data-i18n="analystName">Nome do analista</label>
+          <input class="form-control" id="paramRequesterName" type="text" data-i18n-placeholder="analystNamePlaceholder" placeholder="SEU NOME AQUI">
+        </div>
+        
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" id="paramUseEmojis" type="checkbox" checked>
+          <label class="form-check-label small" for="paramUseEmojis" data-i18n="useEmojisText">Usar emojis nos textos operacionais</label>
+        </div>
+        
+        <div class="form-check form-switch mb-3">
+          <input class="form-check-input" id="paramDarkTheme" type="checkbox">
+          <label class="form-check-label small" for="paramDarkTheme" data-i18n="darkTheme">Tema escuro</label>
+        </div>
+        
+        <div class="d-flex align-items-center gap-2 mb-4 pt-2 border-top">
+          <span class="small fw-bold" data-i18n="language">Idioma:</span>
+          <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-secondary lang-btn active" type="button" data-lang="pt" onclick="setLang('pt', event)">PT</button>
+            <button class="btn btn-outline-secondary lang-btn" type="button" data-lang="en" onclick="setLang('en', event)">EN</button>
+            <button class="btn btn-outline-secondary lang-btn" type="button" data-lang="es" onclick="setLang('es', event)">ES</button>
+          </div>
+        </div>
+        
+        <div class="d-flex justify-content-end gap-2">
+          <button class="btn btn-outline-secondary" id="cancelParametersButton" type="button">
+            <span data-i18n="cancel">Cancelar</span>
+          </button>
+          <button class="btn btn-primary" id="saveParametersButton" type="button">
+            <span data-i18n="saveParameters">Salvar parâmetros</span>
+          </button>
         </div>
       </form>
     </dialog>
 
     <!-- Custom NOC Error Modal -->
-    <dialog class="noc-error-modal" id="nocErrorModal" aria-labelledby="nocErrorTitle">
-      <div class="noc-error-card animate__animated animate__zoomIn">
-        <div class="noc-error-header">
-          <div class="noc-error-icon-box">
-            <i data-lucide="circle-alert"></i>
+    <dialog class="noc-error-modal" id="nocErrorModal" aria-labelledby="nocErrorTitle" style="border: 0; padding: 0; background: transparent;">
+      <div class="card card-noc border-danger shadow-lg p-4 animate__animated animate__zoomIn" style="max-width: 520px; width: 92vw; margin: auto; border-radius: 1rem;">
+        <div class="d-flex align-items-center gap-3 pb-3 mb-3 border-bottom">
+          <div class="badge bg-danger-subtle text-danger p-2 fs-3 rounded-circle">
+            <i class="bi bi-exclamation-triangle"></i>
           </div>
-          <div class="noc-error-title-wrap">
-            <h2 id="nocErrorTitle" data-i18n="errorTitle">Falha na Operação</h2>
-            <p data-i18n="errorOccurred">Ocorreu um erro inesperado durante a execução.</p>
+          <div>
+            <h5 class="fw-bold mb-0 text-danger" id="nocErrorTitle" data-i18n="errorTitle">Falha na Operação</h5>
+            <p class="text-secondary small mb-0" data-i18n="errorOccurred">Ocorreu um erro inesperado durante a execução.</p>
           </div>
         </div>
-        <div class="noc-error-message" id="nocErrorMessage">
+        <div class="alert alert-danger py-2 px-3 small" id="nocErrorMessage">
           Não foi possível concluir a ação solicitada.
         </div>
-        <div class="noc-error-details-wrap" id="nocErrorDetailsWrap" hidden>
-          <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: 700; color: var(--muted);" data-i18n="errorDiagnosis">Diagnóstico técnico:</p>
-          <div class="noc-error-details-box" id="nocErrorDetails"></div>
+        <div id="nocErrorDetailsWrap" class="mb-3" hidden>
+          <p class="text-secondary fw-bold small mb-1" data-i18n="errorDiagnosis">Diagnóstico técnico:</p>
+          <div class="p-2 bg-body-tertiary rounded small font-monospace" id="nocErrorDetails" style="max-height: 140px; overflow-y: auto;"></div>
         </div>
-        <div class="noc-error-actions">
-          <button class="ghost-button" id="nocErrorCopyButton" type="button"><i data-lucide="copy"></i> <span data-i18n="copyErrorDetails">Copiar detalhes</span></button>
-          <button class="ghost-button" id="nocErrorRetryButton" type="button"><i data-lucide="rotate-cw"></i> <span data-i18n="tryAgain">Tentar novamente</span></button>
-          <button class="primary-button" id="nocErrorCloseButton" type="button"><span data-i18n="close">Fechar</span></button>
+        <div class="d-flex justify-content-end gap-2">
+          <button class="btn btn-outline-secondary btn-sm" id="nocErrorCopyButton" type="button"><i class="bi bi-copy"></i> <span data-i18n="copyErrorDetails">Copiar detalhes</span></button>
+          <button class="btn btn-outline-secondary btn-sm" id="nocErrorRetryButton" type="button"><i class="bi bi-arrow-clockwise"></i> <span data-i18n="tryAgain">Tentar novamente</span></button>
+          <button class="btn btn-primary btn-sm" id="nocErrorCloseButton" type="button"><span data-i18n="close">Fechar</span></button>
         </div>
       </div>
     </dialog>
 
-    <!-- Version Update Available Floating Banner -->
-    <aside class="version-update-banner" id="versionUpdateBanner" hidden aria-live="polite">
-      <div class="version-update-info">
-        <div class="version-update-icon">
-          <i data-lucide="rocket"></i>
+    <!-- Version Update Available Floating Toast Banner -->
+    <aside class="position-fixed bottom-0 end-0 p-3" style="z-index: 1090;">
+      <div class="card card-noc shadow-lg border-primary p-3" id="versionUpdateBanner" hidden role="alert" aria-live="polite">
+        <div class="d-flex align-items-center justify-content-between gap-3">
+          <div class="d-flex align-items-center gap-2.5">
+            <span class="badge bg-primary p-2 rounded-circle"><i class="bi bi-rocket-takeoff"></i></span>
+            <div>
+              <strong class="d-block small" data-i18n="newVersionTitle">Nova Versão Disponível</strong>
+              <small class="text-secondary" data-i18n="newVersionAvailable">Clique para atualizar e limpar o cache.</small>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-primary btn-sm d-flex align-items-center gap-1" id="versionUpdateActionBtn" type="button">
+              <i class="bi bi-arrow-repeat"></i> <span data-i18n="updateAndClearCache">Atualizar</span>
+            </button>
+            <button class="btn-close" id="versionUpdateDismissBtn" type="button" aria-label="Fechar"></button>
+          </div>
         </div>
-        <div class="version-update-text">
-          <strong data-i18n="newVersionTitle">Nova Versão Disponível</strong>
-          <span data-i18n="newVersionAvailable">Clique para atualizar e limpar o cache.</span>
-        </div>
-      </div>
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <button class="version-update-btn" id="versionUpdateActionBtn" type="button">
-          <i data-lucide="refresh-cw" style="width: 14px; height: 14px; vertical-align: -2px;"></i> <span data-i18n="updateAndClearCache">Atualizar e Limpar Cache</span>
-        </button>
-        <button class="icon-button" id="versionUpdateDismissBtn" type="button" aria-label="Fechar aviso" style="padding: 4px; background: transparent; border: none; color: var(--muted); cursor: pointer;"><i data-lucide="x"></i></button>
       </div>
     </aside>
 
+    <!-- ====================================================================
+         SCRIPTS: Bootstrap 5.3.3, Cytoscape, GSAP, Lucide & App Core
+         ==================================================================== -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script type="module" src="three-loader.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://unpkg.com/cytoscape@3.30.4/dist/cytoscape.min.js"></script>
-    <script src="js/translations.js?v=3.7.2"></script>
-    <script src="app.js?v=3.7.2"></script>
+    <script src="js/translations.js?v=4.0.0"></script>
+    <script src="app.js?v=4.0.0"></script>
   </body>
 </html>

@@ -1,0 +1,544 @@
+/* ==========================================================================
+   NOC IP TOOL - Bootstrap 5.3.3 Modern Theme & Collapsible Sidebar Styles
+   ========================================================================== */
+
+:root {
+  --noc-sidebar-width: 270px;
+  --noc-sidebar-collapsed-width: 74px;
+  --noc-primary: #0d9488;
+  --noc-primary-hover: #0f766e;
+  --noc-primary-glow: rgba(13, 148, 136, 0.25);
+  --noc-accent-red: #e11d48;
+  --noc-accent-amber: #f59e0b;
+  --noc-surface-glass: rgba(255, 255, 255, 0.85);
+  --noc-border-glass: rgba(0, 0, 0, 0.08);
+  --noc-sidebar-bg: #f8fafc;
+}
+
+[data-bs-theme="dark"],
+body.theme-dark-red {
+  --noc-primary: #e11d48;
+  --noc-primary-hover: #be123c;
+  --noc-primary-glow: rgba(225, 29, 72, 0.35);
+  --noc-surface-glass: rgba(18, 20, 29, 0.82);
+  --noc-border-glass: rgba(255, 255, 255, 0.08);
+  --noc-sidebar-bg: #0f121a;
+}
+
+/* Background canvas */
+.three-background {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  opacity: 0.28;
+  pointer-events: none;
+}
+
+body {
+  min-height: 100vh;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+}
+
+/* --------------------------------------------------------------------------
+   Layout Structure: Wrapper & Sidebar
+   -------------------------------------------------------------------------- */
+#appLayoutWrapper {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Sidebar styling */
+#sidebarWrapper {
+  width: var(--noc-sidebar-width);
+  min-width: var(--noc-sidebar-width);
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  z-index: 1030;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--noc-sidebar-bg);
+  border-right: 1px solid var(--bs-border-color);
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow-x: hidden;
+}
+
+.sidebar-header {
+  height: 68px;
+  padding: 0 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--bs-border-color);
+  flex-shrink: 0;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+  color: var(--bs-body-color);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.sidebar-brand-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--noc-primary), #0284c7);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px var(--noc-primary-glow);
+}
+
+.sidebar-brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.sidebar-brand-title {
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+}
+
+.sidebar-brand-subtitle {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--bs-secondary-color);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Sidebar Menu Navigation */
+.sidebar-nav {
+  flex-grow: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 1rem 0.75rem;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: var(--bs-border-color);
+  border-radius: 4px;
+}
+
+.sidebar-heading {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--bs-secondary-color);
+  padding: 0.75rem 0.75rem 0.35rem 0.75rem;
+  white-space: nowrap;
+}
+
+.sidebar-nav .nav-item {
+  margin-bottom: 0.25rem;
+}
+
+.sidebar-nav .nav-link {
+  display: flex;
+  align-items: center;
+  padding: 0.625rem 0.85rem;
+  border-radius: 0.5rem;
+  color: var(--bs-body-color);
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  position: relative;
+  border: 1px solid transparent;
+}
+
+.sidebar-nav .nav-link:hover {
+  background-color: var(--bs-tertiary-bg);
+  color: var(--bs-primary);
+}
+
+.sidebar-nav .nav-link.active {
+  background-color: var(--noc-primary);
+  color: #ffffff !important;
+  font-weight: 600;
+  box-shadow: 0 4px 14px var(--noc-primary-glow);
+}
+
+.sidebar-nav .nav-link.active .nav-icon,
+.sidebar-nav .nav-link.active i {
+  color: #ffffff !important;
+}
+
+.sidebar-nav .nav-icon {
+  font-size: 1.2rem;
+  width: 24px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  margin-right: 0.75rem;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.sidebar-nav .nav-link:hover .nav-icon {
+  transform: scale(1.1);
+}
+
+.sidebar-nav .nav-arrow {
+  margin-left: auto;
+  font-size: 0.8rem;
+  transition: transform 0.2s ease;
+}
+
+.sidebar-nav .nav-link[aria-expanded="true"] .nav-arrow {
+  transform: rotate(180deg);
+}
+
+.sidebar-submenu {
+  list-style: none;
+  padding-left: 1.5rem;
+  margin-top: 0.25rem;
+  border-left: 2px solid var(--bs-border-color);
+  margin-left: 1.25rem;
+}
+
+.sidebar-submenu .nav-link {
+  font-size: 0.85rem;
+  padding: 0.45rem 0.75rem;
+}
+
+/* Sidebar Footer */
+.sidebar-footer {
+  padding: 0.85rem 1rem;
+  border-top: 1px solid var(--bs-border-color);
+  flex-shrink: 0;
+  background: var(--bs-body-bg);
+}
+
+/* --------------------------------------------------------------------------
+   Collapsed Sidebar State (Mini-Rail on Desktop)
+   -------------------------------------------------------------------------- */
+.sidebar-collapsed #sidebarWrapper {
+  width: var(--noc-sidebar-collapsed-width);
+  min-width: var(--noc-sidebar-collapsed-width);
+}
+
+.sidebar-collapsed .sidebar-brand-text,
+.sidebar-collapsed .sidebar-heading,
+.sidebar-collapsed .nav-text,
+.sidebar-collapsed .nav-arrow,
+.sidebar-collapsed .badge-hide-collapsed,
+.sidebar-collapsed .sidebar-footer-text,
+.sidebar-collapsed .sidebar-collapse-btn-icon-right {
+  display: none !important;
+}
+
+.sidebar-collapsed .sidebar-header {
+  justify-content: center;
+  padding: 0;
+}
+
+.sidebar-collapsed .sidebar-brand {
+  justify-content: center;
+}
+
+.sidebar-collapsed .sidebar-nav {
+  padding: 0.75rem 0.5rem;
+}
+
+.sidebar-collapsed .sidebar-nav .nav-link {
+  justify-content: center;
+  padding: 0.7rem 0;
+}
+
+.sidebar-collapsed .sidebar-nav .nav-icon {
+  margin-right: 0;
+}
+
+.sidebar-collapsed .sidebar-submenu {
+  display: none !important;
+}
+
+.sidebar-collapsed .sidebar-footer {
+  padding: 0.75rem 0.25rem;
+  display: flex;
+  justify-content: center;
+}
+
+/* --------------------------------------------------------------------------
+   Page Content Wrapper & Top Navbar
+   -------------------------------------------------------------------------- */
+#pageContentWrapper {
+  flex-grow: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bs-body-bg);
+}
+
+.top-navbar {
+  height: 68px;
+  padding: 0 1.5rem;
+  border-bottom: 1px solid var(--bs-border-color);
+  background-color: var(--noc-surface-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+}
+
+.status-indicator-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #10b981;
+  box-shadow: 0 0 8px #10b981;
+  animation: pulseLive 2s infinite;
+}
+
+@keyframes pulseLive {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+/* --------------------------------------------------------------------------
+   Screen Modes (Início, Capacidades, Massivas, Manual)
+   -------------------------------------------------------------------------- */
+.app-view-container {
+  display: none;
+}
+
+/* When body has app-not-started */
+body.app-not-started #viewLaunch {
+  display: block;
+}
+
+/* When body has app-mode-auto */
+body.app-mode-auto #autoFlow {
+  display: block;
+}
+
+/* When body has app-mode-massivas */
+body.app-mode-massivas #massivasFlow {
+  display: block;
+}
+
+/* When body has app-mode-manual */
+body.app-mode-manual #workspace {
+  display: block;
+}
+
+/* --------------------------------------------------------------------------
+   Step Wizards (Capacidades & Massivas)
+   -------------------------------------------------------------------------- */
+.wizard-steps-nav {
+  display: flex;
+  gap: 0.5rem;
+  background: var(--bs-tertiary-bg);
+  padding: 0.4rem;
+  border-radius: 0.75rem;
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+}
+
+.wizard-step-item {
+  flex: 1;
+  min-width: 130px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--bs-secondary-color);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.wizard-step-item:hover {
+  background: rgba(var(--bs-primary-rgb), 0.08);
+  color: var(--bs-primary);
+}
+
+.wizard-step-item.is-active {
+  background: var(--bs-primary);
+  color: #ffffff;
+  box-shadow: 0 3px 10px rgba(var(--bs-primary-rgb), 0.3);
+}
+
+.wizard-step-number {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.wizard-step-item.is-active .wizard-step-number {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+/* Step Articles */
+.auto-step,
+.massivas-step {
+  display: none;
+}
+
+.auto-step.is-active,
+.massivas-step.is-active {
+  display: block;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --------------------------------------------------------------------------
+   Cards, Panels and Copy Buttons
+   -------------------------------------------------------------------------- */
+.card-noc {
+  border: 1px solid var(--bs-border-color);
+  background-color: var(--noc-surface-glass);
+  backdrop-filter: blur(8px);
+  border-radius: 0.85rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.03);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-noc-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.07);
+}
+
+.btn-copy-action {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  border-radius: 0.55rem;
+  transition: all 0.15s ease;
+  width: 100%;
+}
+
+.btn-copy-action:active {
+  transform: scale(0.98);
+}
+
+.preview-box {
+  font-family: "IBM Plex Mono", SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  background: var(--bs-tertiary-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 480px;
+  overflow-y: auto;
+  margin: 0;
+}
+
+/* Topology Graph Panel in Massivas */
+.massivas-topology-panel {
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.75rem;
+  background: var(--bs-body-bg);
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+}
+
+.massivas-topology-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--bs-border-color);
+  background: var(--bs-tertiary-bg);
+}
+
+#massivasTopologyGraph {
+  width: 100%;
+  height: 380px;
+  background: radial-gradient(circle at center, rgba(15, 23, 42, 0.4), rgba(15, 23, 42, 0.95));
+}
+
+/* Top Progress Bar */
+.app-top-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 9999;
+  background: transparent;
+}
+
+.app-top-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #10b981, #06b6d4, #6366f1);
+  transition: width 0.2s ease;
+}
+
+/* Responsive adjustments */
+@media (max-width: 991.98px) {
+  #sidebarWrapper {
+    position: fixed;
+    transform: translateX(-100%);
+    width: var(--noc-sidebar-width) !important;
+    min-width: var(--noc-sidebar-width) !important;
+    box-shadow: 0 0 25px rgba(0, 0, 0, 0.25);
+  }
+  
+  #sidebarWrapper.show-mobile {
+    transform: translateX(0);
+  }
+
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1025;
+    display: none;
+  }
+
+  .sidebar-backdrop.show-mobile {
+    display: block;
+  }
+}
+

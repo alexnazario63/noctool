@@ -190,8 +190,14 @@ function useDarkTheme() {
 }
 
 function applyTheme() {
-  document.body.classList.toggle("theme-dark-red", useDarkTheme());
-  window.dispatchEvent(new CustomEvent("noc-theme-change", { detail: { dark: useDarkTheme() } }));
+  const isDark = useDarkTheme();
+  document.body.classList.toggle("theme-dark-red", isDark);
+  document.documentElement.setAttribute("data-bs-theme", isDark ? "dark" : "light");
+  const themeIcon = document.getElementById("themeIcon");
+  if (themeIcon) {
+    themeIcon.className = isDark ? "bi bi-sun" : "bi bi-moon-stars";
+  }
+  window.dispatchEvent(new CustomEvent("noc-theme-change", { detail: { dark: isDark } }));
 }
 
 function emoji(value) {
@@ -350,6 +356,7 @@ function renderIcons() {
 }
 
 function bindEvents() {
+  initSidebar();
   document.getElementById("generatorForm").addEventListener("input", renderOutput);
   document.getElementById("startAutoButton").addEventListener("click", () => startMode("auto"));
   document.getElementById("startMassivasButton").addEventListener("click", () => startMode("massivas"));
@@ -487,10 +494,118 @@ function initPreviewTooltips() {
   });
 }
 
+function updateSidebarActiveState(mode) {
+  const navMap = {
+    launch: { id: "sidebarNavHome", title: "Visão Geral", badge: "Dashboard" },
+    auto: { id: "sidebarNavAuto", title: "Capacidades (5 Passos)", badge: "Fluxo Guiado" },
+    massivas: { id: "sidebarNavMassivas", title: "Massivas & Topologia", badge: "Backbone Live" },
+    manual: { id: "sidebarNavManual", title: "Edição Manual", badge: "Workspace" },
+  };
+
+  document.querySelectorAll(".sidebar-nav .nav-link").forEach((link) => {
+    link.classList.remove("active");
+  });
+
+  const current = navMap[mode] || navMap.launch;
+  const currentLink = document.getElementById(current.id);
+  if (currentLink) {
+    currentLink.classList.add("active");
+  }
+
+  const titleEl = document.getElementById("topNavCurrentTitle");
+  const badgeEl = document.getElementById("topNavSectionBadge");
+  if (titleEl) titleEl.textContent = current.title;
+  if (badgeEl) badgeEl.textContent = current.badge;
+
+  closeMobileSidebar();
+}
+
+function closeMobileSidebar() {
+  document.getElementById("sidebarWrapper")?.classList.remove("show-mobile");
+  document.getElementById("sidebarBackdrop")?.classList.remove("show-mobile");
+}
+
+function openMobileSidebar() {
+  document.getElementById("sidebarWrapper")?.classList.add("show-mobile");
+  document.getElementById("sidebarBackdrop")?.classList.add("show-mobile");
+}
+
+function toggleDesktopSidebar() {
+  const layoutWrapper = document.getElementById("appLayoutWrapper");
+  if (!layoutWrapper) return;
+  const collapsed = layoutWrapper.classList.toggle("sidebar-collapsed");
+  localStorage.setItem("noc_sidebar_collapsed", collapsed ? "true" : "false");
+  const chevron = document.getElementById("sidebarCollapseChevron");
+  if (chevron) {
+    chevron.className = collapsed ? "bi bi-chevron-right" : "bi bi-chevron-left";
+  }
+}
+
+function toggleThemeFromNavbar() {
+  const defaults = readDefaults();
+  defaults.darkTheme = !defaults.darkTheme;
+  if (fields.paramDarkTheme) fields.paramDarkTheme.checked = defaults.darkTheme;
+  localStorage.setItem("nocGeneratorDefaults", JSON.stringify(defaults));
+  applyTheme();
+}
+
+function initSidebar() {
+  const layoutWrapper = document.getElementById("appLayoutWrapper");
+  const isCollapsed = localStorage.getItem("noc_sidebar_collapsed") === "true";
+  if (isCollapsed && layoutWrapper) {
+    layoutWrapper.classList.add("sidebar-collapsed");
+    const chevron = document.getElementById("sidebarCollapseChevron");
+    if (chevron) {
+      chevron.className = "bi bi-chevron-right";
+    }
+  }
+
+  const desktopToggle = document.getElementById("sidebarDesktopToggleBtn");
+  const headerToggle = document.getElementById("sidebarToggleBtnHeader");
+  const footerToggle = document.getElementById("sidebarToggleBtnFooter");
+  if (desktopToggle) desktopToggle.addEventListener("click", toggleDesktopSidebar);
+  if (headerToggle) headerToggle.addEventListener("click", toggleDesktopSidebar);
+  if (footerToggle) footerToggle.addEventListener("click", toggleDesktopSidebar);
+
+  const mobileToggle = document.getElementById("sidebarMobileToggleBtn");
+  const backdrop = document.getElementById("sidebarBackdrop");
+  const sidebar = document.getElementById("sidebarWrapper");
+
+  if (mobileToggle) {
+    mobileToggle.addEventListener("click", () => {
+      if (sidebar?.classList.contains("show-mobile")) {
+        closeMobileSidebar();
+      } else {
+        openMobileSidebar();
+      }
+    });
+  }
+
+  if (backdrop) backdrop.addEventListener("click", closeMobileSidebar);
+
+  document.getElementById("sidebarBrandLink")?.addEventListener("click", (e) => { e.preventDefault(); returnToLaunch(); });
+  document.getElementById("sidebarNavHome")?.addEventListener("click", (e) => { e.preventDefault(); returnToLaunch(); });
+  document.getElementById("sidebarNavAuto")?.addEventListener("click", (e) => { e.preventDefault(); startMode("auto"); });
+  document.getElementById("sidebarNavMassivas")?.addEventListener("click", (e) => { e.preventDefault(); startMode("massivas"); });
+  document.getElementById("sidebarNavManual")?.addEventListener("click", (e) => { e.preventDefault(); startMode("manual"); });
+  document.getElementById("sidebarNavParameters")?.addEventListener("click", (e) => { e.preventDefault(); openParametersDialog(); });
+  document.getElementById("navParametersShortcutBtn")?.addEventListener("click", openParametersDialog);
+
+  document.getElementById("themeQuickToggleBtn")?.addEventListener("click", toggleThemeFromNavbar);
+
+  if (window.bootstrap?.Tooltip) {
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((el) => {
+      new bootstrap.Tooltip(el, { trigger: "hover" });
+    });
+  }
+}
+
 function startMode(mode) {
   showGlobalProgress(70, 200);
   document.body.classList.remove("app-not-started", "app-mode-auto", "app-mode-manual", "app-mode-massivas");
   document.body.classList.add(mode === "auto" ? "app-mode-auto" : mode === "massivas" ? "app-mode-massivas" : "app-mode-manual");
+
+  updateSidebarActiveState(mode);
 
   if (mode === "auto") {
     fields.autoFlow.hidden = false;
@@ -520,6 +635,7 @@ function returnToLaunch() {
   document.body.classList.add("app-not-started");
   fields.autoFlow.hidden = true;
   fields.massivasFlow.hidden = true;
+  updateSidebarActiveState("launch");
   showAutoStep(1);
   showMassivasStep(1);
   animateLaunchIn();
@@ -533,6 +649,7 @@ function restartAutoFlow() {
   document.body.classList.add("app-mode-auto");
   fields.autoFlow.hidden = false;
   fields.massivasFlow.hidden = true;
+  updateSidebarActiveState("auto");
   resetAutoFlowFields();
   syncAutoFieldsFromMain();
   showAutoStep(1);
@@ -548,6 +665,7 @@ function restartMassivasFlow() {
   document.body.classList.add("app-mode-massivas");
   fields.autoFlow.hidden = true;
   fields.massivasFlow.hidden = false;
+  updateSidebarActiveState("massivas");
   resetMassivasFlowFields();
   showMassivasStep(1);
   setStatus("Nova massiva pronta.");
@@ -5012,7 +5130,7 @@ function showToast(message, icon = "success") {
    APP VERSIONING & DEEP CACHE PURGE SYSTEM
    ========================================================================== */
 
-const CURRENT_APP_VERSION = "3.7.2";
+const CURRENT_APP_VERSION = "4.0.0";
 const APP_BUILD_TIMESTAMP = "2026-09-02";
 let detectedNewServerVersion = null;
 
