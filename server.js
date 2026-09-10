@@ -4,6 +4,7 @@ const path = require("path");
 
 const root = path.resolve(process.cwd());
 const port = Number(process.env.PORT || 5173);
+const host = process.env.HOST || "0.0.0.0";
 
 const contentTypes = {
   ".html": "text/html; charset=utf-8",
@@ -12,10 +13,22 @@ const contentTypes = {
   ".json": "application/json; charset=utf-8",
   ".svg": "image/svg+xml",
   ".png": "image/png",
+  ".txt": "text/plain; charset=utf-8",
+  ".ico": "image/x-icon",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
 };
 
 const server = http.createServer((request, response) => {
-  if (request.url === "/api/city" && request.method === "POST") {
+  const [pathname] = (request.url || "/").split("?");
+
+  if (pathname === "/api/config" && request.method === "GET") {
+    response.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+    response.end(JSON.stringify({ turnstileSiteKey: process.env.TURNSTILE_SITE_KEY || "" }));
+    return;
+  }
+
+  if (pathname === "/api/city" && request.method === "POST") {
     let body = "";
     request.on("data", chunk => { body += chunk.toString(); });
     request.on("end", async () => {
@@ -27,7 +40,14 @@ const server = http.createServer((request, response) => {
           return;
         }
 
-        const formData = new URLSearchParams({ q: query.trim().toLowerCase() });
+        const cleanQuery = query.trim().toLowerCase();
+        if (!/^[a-z0-9]{2,8}$/.test(cleanQuery)) {
+          response.writeHead(400, { "Content-Type": "application/json" });
+          response.end(JSON.stringify({ error: "Código CNL inválido." }));
+          return;
+        }
+
+        const formData = new URLSearchParams({ q: cleanQuery });
         const upstream = await fetch("https://dev.onerio.pw/raphael/index.php", {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -44,16 +64,23 @@ const server = http.createServer((request, response) => {
     return;
   }
 
-  const requestedPath = decodeURIComponent(request.url.split("?")[0]);
-  const safePath = path
+  const requestedPath = decodeURIComponent(pathname);
+  let safePath = path
     .normalize(requestedPath === "/" ? "/index.html" : requestedPath)
     .replace(/^[/\\]+/, "");
-  const filePath = path.resolve(root, safePath);
+  let filePath = path.resolve(root, safePath);
 
   if (!filePath.startsWith(root)) {
     response.writeHead(403);
     response.end("Forbidden");
     return;
+  }
+
+  if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
+    const indexPath = path.join(filePath, "index.html");
+    if (fs.existsSync(indexPath)) {
+      filePath = indexPath;
+    }
   }
 
   fs.readFile(filePath, (error, data) => {
@@ -70,8 +97,8 @@ const server = http.createServer((request, response) => {
   });
 });
 
-server.listen(port, "127.0.0.1", () => {
-  console.log(`DESCTOOL disponível em http://127.0.0.1:${port}`);
+server.listen(port, host, () => {
+  console.log(`DSCTOOL disponível em http://${host === "0.0.0.0" ? "localhost" : host}:${port}`);
 });
 
 server.on("error", (error) => {

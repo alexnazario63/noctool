@@ -1,16 +1,11 @@
-name = "dsctool"
-main = "worker.js"
-compatibility_date = "2026-09-03"
+name = "noctool"
+compatibility_date = "2026-09-09"
+pages_build_output_dir = "."
 
 [vars]
-TURNSTILE_REQUIRED = "true"
-
-[assets]
-directory = "."
-binding = "ASSETS"
+TURNSTILE_REQUIRED = "false"
 
 [[d1_databases]]
-binding = "DB"
-database_name = "dsctool"
-# Preencha com o ID retornado por: npx wrangler d1 create dsctool
-# database_id = "..."
+binding = "noctool"
+database_name = "noctool"
+database_id = "926ef62d-f5cf-49a0-8f33-a1c94ff2113c"

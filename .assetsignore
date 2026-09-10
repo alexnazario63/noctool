@@ -2,5 +2,11 @@
 .github/
 .wrangler/
 node_modules/
+functions/
+migrations/
+server.js
 worker.js
 wrangler.toml
+package.json
+package-lock.json
+README.md

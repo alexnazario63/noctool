@@ -1,0 +1,28 @@
+{
+  "name": "noctool",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Ferramenta NOC / NOCTOOL para análise e diagnóstico de rede com Cloudflare Pages e D1",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "pages:dev": "wrangler pages dev . --d1 DB=noctool",
+    "pages:deploy": "wrangler pages deploy . --project-name=noctool",
+    "db:migrate:local": "wrangler d1 migrations apply noctool --local",
+    "db:migrate:remote": "wrangler d1 migrations apply noctool --remote"
+  },
+  "keywords": [
+    "noc",
+    "cloudflare-pages",
+    "d1",
+    "pages-functions"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "wrangler": "^3.114.0"
+  }
+}
+
